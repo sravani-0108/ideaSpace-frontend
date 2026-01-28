@@ -1,0 +1,97 @@
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { getUserDisplayName, getUserInitials } from '../utils/user.util';
+
+const LeftSidebar = () => {
+  const { user, isAdmin } = useAuth();
+  const location = useLocation();
+
+  if (!user) return null;
+
+  const userInitials = getUserInitials(user);
+  const userName = getUserDisplayName(user);
+
+  const isActive = (path: string) => location.pathname === path;
+
+  return (
+    <div className="w-64 flex-shrink-0">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-20">
+        {/* Profile Card */}
+        <div className="text-center pb-4 border-b border-gray-200 mb-4">
+          <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3 shadow-md">
+            {userInitials}
+          </div>
+          <h3 className="font-semibold text-gray-900 text-lg">{userName}</h3>
+          <p className="text-sm text-gray-500 mt-1">{user.email}</p>
+          <span className="inline-block mt-2 px-3 py-1 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">
+            {user.role}
+          </span>
+        </div>
+
+        {/* Navigation Links */}
+        <div className="space-y-1">
+          <Link
+            to="/dashboard"
+            className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              isActive('/dashboard') || isActive('/')
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <span>Ideas Feed</span>
+          </Link>
+
+          <Link
+            to="/my-ideas"
+            className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              isActive('/my-ideas')
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <span>My Ideas</span>
+          </Link>
+
+          <Link
+            to="/saved"
+            className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              isActive('/saved')
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            <span>Saved Items</span>
+          </Link>
+
+          {isAdmin && (
+            <Link
+              to="/admin/review"
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/admin/review')
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Admin Review</span>
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LeftSidebar;
+
