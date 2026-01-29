@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
 import { registrationService } from '../../services/registration.service';
 import { teamService } from '../../services/team.service';
@@ -12,6 +12,7 @@ import RightSidebar from '../../components/RightSidebar';
 
 const HackathonDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -160,10 +161,13 @@ const HackathonDetails = () => {
           <div className="flex-1">
             <div className="mb-6">
               <Link
-                to="/dashboard"
-                className="text-blue-600 hover:text-blue-700 mb-4 inline-block"
+                to={`/dashboard?tab=hackathons${searchParams.get('subtab') ? `&subtab=${searchParams.get('subtab')}` : ''}`}
+                className="text-blue-600 hover:text-blue-700 mb-4 inline-flex items-center"
               >
-                ← Back
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
               </Link>
             </div>
 

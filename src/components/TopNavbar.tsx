@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import NotificationDropdown from './NotificationDropdown';
-import { getUserDisplayName, getUserInitials } from '../utils/user.util';
+import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
 
 const TopNavbar = () => {
   const { user, logout } = useAuth();
@@ -139,9 +139,30 @@ const TopNavbar = () => {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center space-x-2 p-1 rounded-md hover:bg-gray-100 transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
-                  {getUserInitials(user)}
-                </div>
+                {(() => {
+                  const profilePicUrl = getProfilePictureUrl(user);
+                  return profilePicUrl ? (
+                    <img
+                      key={`navbar-${user.id}-${user.profilePicture || 'no-pic'}`}
+                      src={profilePicUrl}
+                      alt={getUserDisplayName(user)}
+                      className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => {
+                        // Fallback to initials if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const fallback = document.createElement('div');
+                        fallback.className = 'w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium';
+                        fallback.textContent = getUserInitials(user);
+                        target.parentNode?.appendChild(fallback);
+                      }}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+                      {getUserInitials(user)}
+                    </div>
+                  );
+                })()}
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -155,6 +176,13 @@ const TopNavbar = () => {
                     <p className="text-xs text-gray-400 mt-1">{user.role}</p>
                   </div>
                   <div className="border-t border-gray-200 mt-1">
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Profile
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"

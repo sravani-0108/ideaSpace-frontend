@@ -31,6 +31,12 @@ const SavedItems = () => {
     }
   };
 
+  const handleIdeaUpdate = (updatedIdea: Idea) => {
+    setIdeas(prevIdeas => 
+      prevIdeas.map(idea => idea.id === updatedIdea.id ? updatedIdea : idea)
+    );
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -105,7 +111,7 @@ const SavedItems = () => {
             ) : (
               <div className="space-y-4">
                 {ideas.map((idea) => (
-                  <FeedPost key={idea.id} idea={idea} />
+                  <FeedPost key={idea.id} idea={idea} onUpdate={handleIdeaUpdate} />
                 ))}
               </div>
             )}

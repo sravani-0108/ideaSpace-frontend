@@ -80,54 +80,18 @@ const HackathonDetails = () => {
   // Status is automatically updated by backend based on dates
   // No manual status update needed
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
+  const formatDateShort = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
+      year: 'numeric',
+    }) + ' - ' + date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
   };
 
-  const getStatusColor = (status: HackathonStatus) => {
-    switch (status) {
-      case HackathonStatus.PENDING:
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case HackathonStatus.ACTIVE:
-        return 'bg-green-100 text-green-800 border-green-300';
-      case HackathonStatus.COMPLETED:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
-
-  const getStatusDisplayName = (status: HackathonStatus) => {
-    switch (status) {
-      case HackathonStatus.PENDING:
-        return 'Upcoming';
-      case HackathonStatus.ACTIVE:
-        return 'Active';
-      case HackathonStatus.COMPLETED:
-        return 'Completed';
-      default:
-        return status;
-    }
-  };
-
-  // Calculate status distribution for bars
-  const allStatuses = [HackathonStatus.PENDING, HackathonStatus.ACTIVE, HackathonStatus.COMPLETED];
-  const statusCounts = {
-    [HackathonStatus.PENDING]: 0,
-    [HackathonStatus.ACTIVE]: 0,
-    [HackathonStatus.COMPLETED]: 0,
-  };
-  // For now, we'll show the current hackathon's status
-  if (hackathon) {
-    statusCounts[hackathon.status] = 1;
-  }
-  const total = Object.values(statusCounts).reduce((a, b) => a + b, 0) || 1;
 
   if (isLoading) {
     return (
@@ -164,13 +128,16 @@ const HackathonDetails = () => {
       <AdminSidebar />
       
       <div className="flex-1 p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="mb-6">
             <Link
               to="/admin/hackathons"
-              className="text-blue-600 hover:text-blue-700 mb-4 inline-block"
+              className="text-blue-600 hover:text-blue-700 mb-4 inline-flex items-center text-sm"
             >
-              ← Back to Hackathons
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
             </Link>
           </div>
 
@@ -180,144 +147,149 @@ const HackathonDetails = () => {
             </div>
           )}
 
-          {/* Title */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">{hackathon.title}</h1>
-            <div className="flex items-center space-x-4">
-              <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(hackathon.status)}`}>
-                {getStatusDisplayName(hackathon.status)}
-              </span>
-            </div>
-          </div>
-
-          {/* Purpose */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-3">Purpose</h2>
-            <p className="text-gray-700 whitespace-pre-wrap">{hackathon.purpose}</p>
-          </div>
-
-          {/* Description */}
-          {hackathon.description && (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3">Description</h2>
-              <p className="text-gray-700 whitespace-pre-wrap">{hackathon.description}</p>
-            </div>
-          )}
-
-          {/* Event Details */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Event Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Start Date</h3>
-                <p className="text-gray-900">{formatDate(hackathon.startDate)}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">End Date</h3>
-                <p className="text-gray-900">{formatDate(hackathon.endDate)}</p>
-              </div>
-              <div className="md:col-span-2">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Location</h3>
-                <p className="text-gray-900">{hackathon.location}</p>
-              </div>
-              {hackathon.onlineLink && (
-                <div className="md:col-span-2">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Microsoft Teams Link</h3>
-                  <a
-                    href={hackathon.onlineLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-700 break-all"
-                  >
-                    {hackathon.onlineLink}
-                  </a>
-                </div>
-              )}
-              {hackathon.registrationDeadline && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Register By</h3>
-                  <p className="text-gray-900">{formatDate(hackathon.registrationDeadline)}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Calendar View - Show full calendar with events */}
+          {/* Header */}
           <div className="mb-6">
-            <Calendar hackathons={[hackathon]} meetings={meetings} />
+            <h1 className="text-2xl font-bold text-gray-900">{hackathon.title}</h1>
           </div>
 
-          {/* Status Bars */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Hackathon Status</h2>
-            <div className="space-y-4">
-              {allStatuses.map((status) => {
-                const count = statusCounts[status];
-                const percentage = (count / total) * 100;
-                return (
-                  <div key={status}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">{getStatusDisplayName(status)}</span>
-                      <span className="text-sm text-gray-500">{count}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className={`h-3 rounded-full transition-all ${
-                          status === HackathonStatus.PENDING
-                            ? 'bg-yellow-500'
-                            : status === HackathonStatus.ACTIVE
-                            ? 'bg-green-500'
-                            : 'bg-gray-500'
-                        }`}
-                        style={{ width: `${percentage}%` }}
-                      />
+          {/* Purpose and Description */}
+          <div className="bg-white rounded-lg shadow-md p-5 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Purpose</h2>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap mb-4">{hackathon.purpose}</p>
+            {hackathon.description && (
+              <>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2 mt-4">Description</h2>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{hackathon.description}</p>
+              </>
+            )}
+          </div>
+
+          {/* Event Schedule & Management - Single Card */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Event Schedule & Management</h2>
+            
+            {/* Three Column Layout: Calendar | Event Details | Notifications */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Calendar */}
+              <div className="lg:col-span-1 border-r border-gray-200 pr-6">
+                <Calendar hackathons={[hackathon]} meetings={meetings} />
+              </div>
+
+              {/* Middle Column - Event Details */}
+              <div className="lg:col-span-1 border-r border-gray-200 pr-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Event Details</h3>
+                <div className="space-y-4">
+                  {/* Start Date */}
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Start Date</p>
+                      <p className="text-sm font-medium text-gray-900">{formatDateShort(hackathon.startDate)}</p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Status Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Status is automatically updated based on start and end dates. 
-              {hackathon.status === HackathonStatus.PENDING && ' Hackathon will become Active when the start date arrives.'}
-              {hackathon.status === HackathonStatus.ACTIVE && ' Hackathon will become Completed when the end date passes.'}
-              {hackathon.status === HackathonStatus.COMPLETED && ' This hackathon has ended.'}
-            </p>
-          </div>
+                  {/* End Date */}
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">End Date</p>
+                      <p className="text-sm font-medium text-gray-900">{formatDateShort(hackathon.endDate)}</p>
+                    </div>
+                  </div>
 
-          {/* Send Reminders */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Send Event Reminders</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Send reminder notifications to all registered users for this hackathon. 
-              Users who already have an unread reminder will not receive duplicates.
-            </p>
-            {reminderMessage && (
-              <div className={`mb-4 rounded-md p-3 text-sm ${
-                reminderMessage.includes('✅') || reminderMessage.includes('successfully')
-                  ? 'bg-green-50 text-green-800' 
-                  : reminderMessage.includes('ℹ️')
-                  ? 'bg-blue-50 text-blue-800'
-                  : 'bg-red-50 text-red-800'
-              }`}>
-                {reminderMessage}
+                  {/* Register By */}
+                  {hackathon.registrationDeadline && (
+                    <div className="flex items-start space-x-3">
+                      <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Register By</p>
+                        <p className="text-sm font-medium text-gray-900">{formatDateShort(hackathon.registrationDeadline)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Location</p>
+                      <p className="text-sm font-medium text-gray-900">{hackathon.location}</p>
+                    </div>
+                  </div>
+
+                  {/* Online Link */}
+                  {hackathon.onlineLink && (
+                    <div className="flex items-start space-x-3">
+                      <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Microsoft Teams Link</p>
+                        <a
+                          href={hackathon.onlineLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-700 break-all"
+                        >
+                          {hackathon.onlineLink}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-            <button
-              onClick={handleSendReminders}
-              disabled={isSendingReminders || hackathon.status === HackathonStatus.COMPLETED}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {isSendingReminders ? 'Sending Reminders...' : 'Send Reminders to Registered Users'}
-            </button>
-            {hackathon.status === HackathonStatus.COMPLETED && (
-              <p className="text-sm text-gray-500 mt-2">
-                Cannot send reminders for completed hackathons.
-              </p>
-            )}
+
+              {/* Right Column - Notifications */}
+              <div className="lg:col-span-1">
+                <div className="flex items-center space-x-2 mb-4">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+                </div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Send Event Reminders</h4>
+                <p className="text-xs text-gray-600 mb-4">
+                  Notify all registered users about the upcoming event. Duplicates are automatically prevented.
+                </p>
+                {reminderMessage && (
+                  <div className={`mb-4 rounded-md p-2 text-xs ${
+                    reminderMessage.includes('✅') || reminderMessage.includes('successfully')
+                      ? 'bg-green-50 text-green-800' 
+                      : reminderMessage.includes('ℹ️')
+                      ? 'bg-blue-50 text-blue-800'
+                      : 'bg-red-50 text-red-800'
+                  }`}>
+                    {reminderMessage}
+                  </div>
+                )}
+                <button
+                  onClick={handleSendReminders}
+                  disabled={isSendingReminders || hackathon.status === HackathonStatus.COMPLETED}
+                  className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium mb-3"
+                >
+                  {isSendingReminders ? 'Sending...' : 'Send Reminder Blast'}
+                </button>
+                {hackathon.status === HackathonStatus.COMPLETED && (
+                  <p className="text-xs text-gray-500">
+                    Cannot send reminders for completed hackathons.
+                  </p>
+                )}
+                {reminderMessage && reminderMessage.includes('✅') && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Last sent just now
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

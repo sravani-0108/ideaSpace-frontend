@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { ideaService } from '../services/idea.service';
 import { Idea, IdeaStatus } from '../types';
 import LeftSidebar from '../components/LeftSidebar';
 import RightSidebar from '../components/RightSidebar';
+import FeedPost from '../components/FeedPost';
 
 const MyIdeas = () => {
   const [ideas, setIdeas] = useState<Idea[]>([]);
@@ -26,21 +26,20 @@ const MyIdeas = () => {
     }
   };
 
+  const handleIdeaUpdate = (updatedIdea: Idea) => {
+    setIdeas(prevIdeas => 
+      prevIdeas.map(idea => idea.id === updatedIdea.id ? updatedIdea : idea)
+    );
+  };
+
   const getStatusBadge = (status: IdeaStatus) => {
     const styles = {
-      [IdeaStatus.REVIEW]: 'bg-yellow-100 text-yellow-800',
-      [IdeaStatus.APPROVED]: 'bg-green-100 text-green-800',
+      [IdeaStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
+      [IdeaStatus.APPROVED]: 'bg-blue-100 text-blue-800',
+      [IdeaStatus.PUBLISHED]: 'bg-green-100 text-green-800',
       [IdeaStatus.REJECTED]: 'bg-red-100 text-red-800',
     };
     return styles[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
   };
 
   if (isLoading) {
@@ -97,40 +96,15 @@ const MyIdeas = () => {
             ) : (
               <div className="space-y-4">
                 {ideas.map((idea) => (
-                  <Link
-                    key={idea.id}
-                    to={`/ideas/${idea.id}`}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow p-6 block"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <h2 className="text-xl font-semibold text-gray-900 flex-1 mr-4">
-                        {idea.title}
-                      </h2>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusBadge(idea.status)}`}>
+                  <div key={idea.id} className="relative">
+                    <FeedPost idea={idea} onUpdate={handleIdeaUpdate} />
+                    {/* Status Badge - positioned to the left of the date to avoid overlap */}
+                    <div className="absolute top-4 right-20 z-10">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap shadow-sm ${getStatusBadge(idea.status)}`}>
                         {idea.status}
                       </span>
                     </div>
-                    <p className="text-gray-700 mb-4 text-sm leading-relaxed line-clamp-6">
-                      {idea.description}
-                    </p>
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                      <span className="text-sm text-gray-500">{formatDate(idea.createdAt)}</span>
-                      <div className="flex items-center space-x-6">
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
-                          <span className="text-sm font-medium">{idea.likesCount || 0}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                          <span className="text-sm font-medium">{idea.commentsCount || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}

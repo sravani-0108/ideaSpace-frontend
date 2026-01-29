@@ -64,5 +64,13 @@ export const ideaService = {
     }
     return response.data.data;
   },
+
+  getIdeasByUserId: async (userId: string, page: number = 1, limit: number = 10): Promise<Idea[]> => {
+    const response = await api.get<ApiResponse<IdeasResponse>>(`/ideas/user/${userId}?page=${page}&limit=${limit}`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to fetch user ideas');
+    }
+    return response.data.data.ideas;
+  },
 };
 

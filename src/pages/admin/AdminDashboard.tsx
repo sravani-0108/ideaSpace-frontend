@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { adminService } from '../../services/admin.service';
 import { ideaService } from '../../services/idea.service';
 import { Idea } from '../../types';
@@ -12,7 +13,25 @@ type TaskView = 'post' | 'pending' | 'allPosts';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
-  const [taskView, setTaskView] = useState<TaskView>('post');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as TaskView | null;
+  
+  // Initialize taskView from URL param or default to 'post'
+  const [taskView, setTaskView] = useState<TaskView>(() => {
+    if (tabParam && ['post', 'pending', 'allPosts'].includes(tabParam)) {
+      return tabParam;
+    }
+    return 'post';
+  });
+
+  // Sync URL param when taskView changes
+  useEffect(() => {
+    if (taskView !== 'post' && tabParam !== taskView) {
+      setSearchParams({ tab: taskView }, { replace: true });
+    } else if (taskView === 'post' && tabParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [taskView, tabParam, setSearchParams]);
   const [pendingIdeas, setPendingIdeas] = useState<Idea[]>([]);
   const [allPosts, setAllPosts] = useState<Idea[]>([]);
   const [isLoading, setIsLoading] = useState(true);

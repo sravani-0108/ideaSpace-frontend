@@ -133,6 +133,12 @@ const IdeasFeed = () => {
     loadIdeas();
   };
 
+  const handleIdeaUpdate = (updatedIdea: Idea) => {
+    setIdeas(prevIdeas => 
+      prevIdeas.map(idea => idea.id === updatedIdea.id ? updatedIdea : idea)
+    );
+  };
+
   const handleRegister = async (hackathonId: string) => {
     if (!user) return;
 
@@ -272,7 +278,7 @@ const IdeasFeed = () => {
           ) : (
             <div className="space-y-4">
               {ideas.map((idea) => (
-                <FeedPost key={idea.id} idea={idea} />
+                <FeedPost key={idea.id} idea={idea} onUpdate={handleIdeaUpdate} />
               ))}
             </div>
           )}
@@ -448,7 +454,7 @@ const IdeasFeed = () => {
 
                     <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                       <Link
-                        to={`/hackathons/${hackathon.id}`}
+                        to={`/hackathons/${hackathon.id}?subtab=${hackathonTab}`}
                         className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                       >
                         View Details →

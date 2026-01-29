@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ideaService } from '../services/idea.service';
 import { useNotifications } from '../contexts/NotificationContext';
-import { getUserDisplayName, getUserInitials } from '../utils/user.util';
+import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
 
 interface CreateIdeaModalProps {
   isOpen: boolean;
@@ -129,9 +129,28 @@ const CreateIdeaModal = ({ isOpen, onClose, onSuccess }: CreateIdeaModalProps) =
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3 flex-1">
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-              {getUserInitials(user)}
-            </div>
+            {(() => {
+              const profilePicUrl = getProfilePictureUrl(user);
+              return profilePicUrl ? (
+                <img
+                  src={profilePicUrl}
+                  alt={getUserDisplayName(user)}
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = document.createElement('div');
+                    fallback.className = 'w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0';
+                    fallback.textContent = getUserInitials(user);
+                    target.parentNode?.appendChild(fallback);
+                  }}
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0">
+                  {getUserInitials(user)}
+                </div>
+              );
+            })()}
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-900 text-sm">{getUserDisplayName(user)}</h3>
               {/* <div className="flex items-center space-x-1 text-xs text-gray-500">

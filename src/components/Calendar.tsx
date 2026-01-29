@@ -218,25 +218,22 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
       });
     }
 
-    const monthName = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     const today = new Date();
 
     return (
       <div key={monthDate.getTime()} className="flex-1">
-        <h4 className="text-sm font-semibold text-gray-900 mb-3 text-center">{monthName}</h4>
-        
         {/* Day names */}
-        <div className="grid grid-cols-7 gap-1 mb-1">
+        <div className="grid grid-cols-7 gap-0.5 mb-1">
           {dayNames.map((day, index) => (
-            <div key={index} className="text-center text-xs font-medium text-gray-500 py-1">
+            <div key={index} className="text-center text-[10px] font-medium text-gray-500 py-0.5">
               {day}
             </div>
           ))}
         </div>
 
         {/* Calendar days */}
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-0.5">
           {calendarDays.map((day, index) => {
             const dayEvents = getEventsForDate(day.date);
             const isToday = day.date.toDateString() === today.toDateString();
@@ -254,17 +251,17 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
             return (
               <div
                 key={index}
-                className={`min-h-[60px] p-1 border border-gray-200 rounded relative ${
+                className={`min-h-[40px] p-0.5 border border-gray-200 rounded relative ${
                   !day.isCurrentMonth ? 'bg-gray-50' : 'bg-white'
-                } ${isToday ? 'ring-2 ring-blue-500' : ''} ${
+                } ${isToday ? 'ring-1 ring-blue-500' : ''} ${
                   hackathonStartEvent ? 'cursor-pointer hover:bg-blue-50' : ''
-                } ${canRegister ? 'hover:ring-2 hover:ring-blue-400' : ''}`}
+                } ${canRegister ? 'hover:ring-1 hover:ring-blue-400' : ''}`}
                 onClick={() => canRegister && handleDateClick(day.date)}
               >
                 <div
-                  className={`text-xs font-medium mb-1 text-center rounded ${
+                  className={`text-[10px] font-medium mb-0.5 text-center rounded ${
                     hackathonStartEvent
-                      ? 'bg-blue-600 text-white py-1 font-semibold'
+                      ? 'bg-blue-600 text-white py-0.5 px-1 font-semibold'
                       : !day.isCurrentMonth
                       ? 'text-gray-400'
                       : 'text-gray-900'
@@ -276,7 +273,7 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
                   {dayEvents.filter(e => e.type !== 'hackathon-start' && e.type !== 'registration').slice(0, 2).map((event) => (
                     <div
                       key={event.id}
-                      className={`w-1.5 h-1.5 rounded-full ${
+                      className={`w-1 h-1 rounded-full ${
                         event.type === 'hackathon-end' ? 'bg-blue-400' :
                         'bg-green-500'
                       }`}
@@ -284,14 +281,14 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
                     />
                   ))}
                   {dayEvents.filter(e => e.type !== 'hackathon-start' && e.type !== 'registration').length > 2 && (
-                    <div className="text-[8px] text-gray-500">+{dayEvents.filter(e => e.type !== 'hackathon-start' && e.type !== 'registration').length - 2}</div>
+                    <div className="text-[7px] text-gray-500">+{dayEvents.filter(e => e.type !== 'hackathon-start' && e.type !== 'registration').length - 2}</div>
                   )}
                 </div>
 
                 {/* Loading indicator */}
                 {isRegistering && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
                   </div>
                 )}
               </div>
@@ -303,34 +300,34 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">Calendar</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-semibold text-gray-900">Calendar</h3>
       </div>
 
       {/* Month Navigation */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <button
           onClick={goToPreviousMonth}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
           aria-label="Previous month"
         >
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1 text-center">
-          <span className="text-lg font-semibold text-gray-900">
+          <span className="text-sm font-semibold text-gray-900">
             {monthToShow.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </span>
         </div>
         <button
           onClick={goToNextMonth}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
           aria-label="Next month"
         >
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -342,18 +339,18 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
       </div>
 
       {/* Legend */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <div className="flex items-center justify-center gap-6 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-600 rounded"></div>
+      <div className="mt-4 pt-3 border-t border-gray-200">
+        <div className="flex items-center justify-center gap-4 text-[10px]">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-blue-600 rounded"></div>
             <span className="text-gray-600">Hackathon Start</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
             <span className="text-gray-600">Hackathon End</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
             <span className="text-gray-600">Meeting</span>
           </div>
         </div>

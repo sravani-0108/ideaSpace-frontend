@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserDisplayName, getUserInitials } from '../utils/user.util';
+import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
 
 const LeftSidebar = () => {
   const { user, isAdmin } = useAuth();
@@ -18,9 +18,30 @@ const LeftSidebar = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-20">
         {/* Profile Card */}
         <div className="text-center pb-4 border-b border-gray-200 mb-4">
-          <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3 shadow-md">
-            {userInitials}
-          </div>
+          {(() => {
+            const profilePicUrl = getProfilePictureUrl(user);
+            return profilePicUrl ? (
+              <img
+                key={`sidebar-${user.id}-${user.profilePicture || 'no-pic'}`}
+                src={profilePicUrl}
+                alt={userName}
+                className="w-20 h-20 rounded-full object-cover mx-auto mb-3 shadow-md"
+                onError={(e) => {
+                  // Fallback to initials if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = document.createElement('div');
+                  fallback.className = 'w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3 shadow-md';
+                  fallback.textContent = userInitials;
+                  target.parentNode?.appendChild(fallback);
+                }}
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3 shadow-md">
+                {userInitials}
+              </div>
+            );
+          })()}
           <h3 className="font-semibold text-gray-900 text-lg">{userName}</h3>
           <p className="text-sm text-gray-500 mt-1">{user.email}</p>
           <span className="inline-block mt-2 px-3 py-1 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">

@@ -20,6 +20,8 @@ import AdminHackathonDetails from './pages/admin/HackathonDetails';
 import CreateHackathon from './pages/admin/CreateHackathon';
 import UserDashboard from './pages/user/UserDashboard';
 import UserHackathonDetails from './pages/user/HackathonDetails';
+import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
@@ -65,6 +67,18 @@ const AppRoutes = () => {
             <SavedItems />
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users/:userId"
+        element={<UserProfile />}
       />
       <Route
         path="/admin/review"

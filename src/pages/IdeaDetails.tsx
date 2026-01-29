@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ideaService } from '../services/idea.service';
 import { commentService } from '../services/comment.service';
 import { likeService } from '../services/like.service';
@@ -7,7 +7,7 @@ import { Idea, Comment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import CommentItem from '../components/CommentItem';
-import { getUserDisplayName } from '../utils/user.util';
+import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
 
 interface IdeaWithLikes extends Idea {
   comments?: Comment[];
@@ -17,7 +17,8 @@ interface IdeaWithLikes extends Idea {
 const IdeaDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, user, isAdmin } = useAuth();
   const { refreshCount } = useNotifications();
   const [idea, setIdea] = useState<IdeaWithLikes | null>(null);
   const [newComment, setNewComment] = useState('');
@@ -25,6 +26,16 @@ const IdeaDetails = () => {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isTogglingLike, setIsTogglingLike] = useState(false);
   const [error, setError] = useState('');
+
+  // Determine where to navigate back to
+  const getBackPath = () => {
+    // Check if coming from admin dashboard via location state
+    if (location.state && (location.state as any).fromAdmin) {
+      return '/admin/dashboard?tab=allPosts';
+    }
+    // Default to home/dashboard
+    return '/';
+  };
 
   useEffect(() => {
     if (id) {
@@ -138,9 +149,12 @@ const IdeaDetails = () => {
         <div className="text-center">
           <p className="text-gray-600 text-lg">Idea not found</p>
           <button
-            onClick={() => navigate('/')}
-            className="mt-4 text-blue-600 hover:text-blue-700"
+            onClick={() => navigate(getBackPath())}
+            className="mt-4 text-blue-600 hover:text-blue-700 inline-flex items-center"
           >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
             Go back to dashboard
           </button>
         </div>
@@ -152,10 +166,10 @@ const IdeaDetails = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
-          onClick={() => navigate('/')}
-          className="mb-4 text-blue-600 hover:text-blue-700 flex items-center"
+          onClick={() => navigate(getBackPath())}
+          className="mb-4 text-blue-600 hover:text-blue-700 inline-flex items-center"
         >
-          <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back to Dashboard
@@ -172,9 +186,42 @@ const IdeaDetails = () => {
           <p className="text-gray-600 mb-6 whitespace-pre-wrap">{idea.description}</p>
           
           <div className="flex items-center justify-between border-t pt-4">
-            <div className="flex items-center space-x-6 text-sm text-gray-500">
-              <span>By {getUserDisplayName(idea.user || idea.author)}</span>
-              <span>{formatDate(idea.createdAt)}</span>
+            <div className="flex items-center space-x-4">
+              {/* User Profile Avatar */}
+              {(() => {
+                const author = idea.user || idea.author;
+                const authorName = getUserDisplayName(author);
+                const authorInitials = getUserInitials(author);
+                const profilePicUrl = getProfilePictureUrl(author);
+                
+                return (
+                  <div className="flex items-center space-x-3">
+                    {profilePicUrl ? (
+                      <img
+                        src={profilePicUrl}
+                        alt={authorName}
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = document.createElement('div');
+                          fallback.className = 'w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium';
+                          fallback.textContent = authorInitials;
+                          target.parentNode?.appendChild(fallback);
+                        }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
+                        {authorInitials}
+                      </div>
+                    )}
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-900">{authorName}</span>
+                      <span className="text-xs text-gray-500">{formatDate(idea.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <button
               onClick={handleLike}

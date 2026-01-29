@@ -93,6 +93,7 @@ export interface User {
   lastName?: string;
   role: UserRole;
   isEmailVerified: boolean;
+  profilePicture?: string | null;
 }
 
 export interface Idea {
@@ -160,5 +161,8 @@ export interface Notification {
 
 export interface AuthResponse {
   token: string;
-  user: User;
+  user: User & {
+    profilePicture?: string | null;
+    isEmailVerified: boolean;
+  };
 }

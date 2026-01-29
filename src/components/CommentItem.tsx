@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Comment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserDisplayName } from '../utils/user.util';
+import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
 
 interface CommentItemProps {
   comment: Comment;
@@ -48,12 +48,36 @@ const CommentItem = ({ comment, ideaId, onReply, level = 0 }: CommentItemProps) 
 
   const author = comment.user || comment.author;
   const authorName = getUserDisplayName(author);
+  const authorInitials = getUserInitials(author);
   const replies = comment.replies || [];
 
   return (
     <div className={`${level > 0 ? 'ml-8 mt-4' : ''}`}>
       <div className={`${level > 0 ? 'border-l-2 border-gray-200 pl-4' : ''}`}>
-        <div className="flex items-start justify-between mb-1">
+        <div className="flex items-start space-x-3 mb-1">
+          {(() => {
+            const profilePicUrl = getProfilePictureUrl(author);
+            return profilePicUrl ? (
+              <img
+                src={profilePicUrl}
+                alt={authorName}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                onError={(e) => {
+                  // Fallback to initials if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = document.createElement('div');
+                  fallback.className = 'w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0';
+                  fallback.textContent = authorInitials;
+                  target.parentNode?.appendChild(fallback);
+                }}
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                {authorInitials}
+              </div>
+            );
+          })()}
           <div className="flex-1">
             <span className="font-medium text-gray-900 text-sm">{authorName}</span>
             {comment.parent && (
