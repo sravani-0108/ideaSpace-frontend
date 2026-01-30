@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
+import { HackathonType } from '../../types';
 import AdminSidebar from '../../components/AdminSidebar';
 
 const CreateHackathon = () => {
@@ -12,6 +13,9 @@ const CreateHackathon = () => {
     startDate: '',
     endDate: '',
     registrationDeadline: '',
+    hackathonType: HackathonType.LEARNING,
+    registrationStartDate: '',
+    registrationEndDate: '',
     location: '',
     onlineLink: '',
   });
@@ -52,6 +56,21 @@ const CreateHackathon = () => {
       newErrors.registrationDeadline = 'Register by date must be before start date';
     }
 
+    // Validate Hands-On hackathon fields
+    if (formData.hackathonType === HackathonType.HANDS_ON) {
+      if (!formData.registrationStartDate) {
+        newErrors.registrationStartDate = 'Registration start date is required for Hands-On hackathons';
+      }
+      if (!formData.registrationEndDate) {
+        newErrors.registrationEndDate = 'Registration end date is required for Hands-On hackathons';
+      } else if (formData.registrationStartDate && new Date(formData.registrationEndDate) < new Date(formData.registrationStartDate)) {
+        newErrors.registrationEndDate = 'Registration end date must be after start date';
+      }
+      if (formData.registrationEndDate && new Date(formData.registrationEndDate) > new Date(formData.startDate)) {
+        newErrors.registrationEndDate = 'Registration end date must be before hackathon start date';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -73,6 +92,9 @@ const CreateHackathon = () => {
         startDate: formData.startDate,
         endDate: formData.endDate,
         registrationDeadline: formData.registrationDeadline || undefined,
+        hackathonType: formData.hackathonType,
+        registrationStartDate: formData.hackathonType === HackathonType.HANDS_ON ? formData.registrationStartDate : undefined,
+        registrationEndDate: formData.hackathonType === HackathonType.HANDS_ON ? formData.registrationEndDate : undefined,
         location: formData.location.trim(),
         onlineLink: formData.onlineLink.trim() || undefined,
       });
@@ -153,6 +175,59 @@ const CreateHackathon = () => {
                   placeholder="Detailed description of the hackathon"
                 />
               </div>
+
+              <div>
+                <label htmlFor="hackathonType" className="block text-sm font-medium text-gray-700 mb-2">
+                  Hackathon Type *
+                </label>
+                <select
+                  id="hackathonType"
+                  value={formData.hackathonType}
+                  onChange={(e) => setFormData({ ...formData, hackathonType: e.target.value as HackathonType })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={HackathonType.LEARNING}>Learning Hackathon</option>
+                  <option value={HackathonType.HANDS_ON}>Hands-On Hackathon</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Hands-On hackathons require idea submission and project implementation
+                </p>
+              </div>
+
+              {formData.hackathonType === HackathonType.HANDS_ON && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div>
+                    <label htmlFor="registrationStartDate" className="block text-sm font-medium text-gray-700 mb-2">
+                      Registration Start Date & Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="registrationStartDate"
+                      value={formData.registrationStartDate}
+                      onChange={(e) => setFormData({ ...formData, registrationStartDate: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {errors.registrationStartDate && <p className="mt-1 text-sm text-red-600">{errors.registrationStartDate}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="registrationEndDate" className="block text-sm font-medium text-gray-700 mb-2">
+                      Registration End Date & Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="registrationEndDate"
+                      value={formData.registrationEndDate}
+                      onChange={(e) => setFormData({ ...formData, registrationEndDate: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {errors.registrationEndDate && <p className="mt-1 text-sm text-red-600">{errors.registrationEndDate}</p>}
+                  </div>
+                  <p className="col-span-2 text-xs text-gray-600">
+                    Users can submit ideas during this registration period. Ideas will be visible only to Admin/Judge until registration ends.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>

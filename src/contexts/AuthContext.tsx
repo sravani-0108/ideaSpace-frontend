@@ -10,6 +10,8 @@ interface AuthContextType {
   updateUser: (updatedUser: User) => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isJudge: boolean;
+  isAdminOrJudge: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,9 +65,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isAuthenticated = !!token && !!user;
   const isAdmin = user?.role === UserRole.ADMIN;
+  const isJudge = user?.role === UserRole.JUDGE;
+  const isAdminOrJudge = isAdmin || isJudge;
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated, isAdmin }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated, isAdmin, isJudge, isAdminOrJudge }}>
       {children}
     </AuthContext.Provider>
   );

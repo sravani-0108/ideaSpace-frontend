@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
 import { meetingService } from '../../services/meeting.service';
-import { Hackathon, HackathonStatus, Meeting } from '../../types';
+import { ideaService } from '../../services/idea.service';
+import { Hackathon, HackathonStatus, Meeting, Idea } from '../../types';
+import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../../utils/user.util';
 import AdminSidebar from '../../components/AdminSidebar';
 import Calendar from '../../components/Calendar';
 
@@ -10,7 +12,9 @@ const HackathonDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
   const [error, setError] = useState('');
   const [isSendingReminders, setIsSendingReminders] = useState(false);
   const [reminderMessage, setReminderMessage] = useState('');
@@ -18,6 +22,7 @@ const HackathonDetails = () => {
   useEffect(() => {
     if (id) {
       loadHackathon();
+      loadIdeas();
     }
   }, [id]);
 
@@ -40,6 +45,20 @@ const HackathonDetails = () => {
       setError(err.response?.data?.message || err.message || 'Failed to load hackathon');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadIdeas = async () => {
+    if (!id) return;
+    try {
+      setIsLoadingIdeas(true);
+      const data = await ideaService.getHandsOnHackathonIdeas(id);
+      setIdeas(data);
+    } catch (err: any) {
+      console.error('Failed to load ideas:', err);
+      setIdeas([]);
+    } finally {
+      setIsLoadingIdeas(false);
     }
   };
 
@@ -290,6 +309,93 @@ const HackathonDetails = () => {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Submitted Ideas Section */}
+          <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Submitted Ideas ({ideas.length})
+            </h2>
+            
+            {isLoadingIdeas ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-600">Loading ideas...</p>
+              </div>
+            ) : ideas.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">No ideas submitted yet for this hackathon</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ideas.map((idea) => {
+                  const authorName = getUserDisplayName(idea.user || idea.author);
+                  const authorInitials = getUserInitials(idea.user || idea.author);
+                  const profilePicUrl = getProfilePictureUrl(idea.user || idea.author);
+
+                  const getIdeaStatusBadge = (status: string) => {
+                    const badges: Record<string, string> = {
+                      'PENDING': 'bg-yellow-100 text-yellow-800',
+                      'APPROVED': 'bg-green-100 text-green-800',
+                      'REJECTED': 'bg-red-100 text-red-800',
+                      'PUBLISHED': 'bg-blue-100 text-blue-800',
+                    };
+                    return badges[status] || 'bg-gray-100 text-gray-800';
+                  };
+
+                  return (
+                    <div
+                      key={idea.id}
+                      className="bg-gray-50 rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          {profilePicUrl ? (
+                            <img
+                              src={profilePicUrl}
+                              alt={authorName}
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const fallback = document.createElement('div');
+                                fallback.className = 'w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0';
+                                fallback.textContent = authorInitials;
+                                target.parentNode?.appendChild(fallback);
+                              }}
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                              {authorInitials}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{authorName}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(idea.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getIdeaStatusBadge(idea.status)}`}>
+                          {idea.status}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2">{idea.title}</h4>
+                      {idea.description && (
+                        <p className="text-xs text-gray-600 line-clamp-3 mb-3">{idea.description}</p>
+                      )}
+                      <Link
+                        to={`/ideas/${idea.id}`}
+                        state={{ fromAdminHackathon: true, hackathonId: id }}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        View Details →
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

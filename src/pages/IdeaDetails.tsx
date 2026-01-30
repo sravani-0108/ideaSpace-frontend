@@ -3,11 +3,13 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ideaService } from '../services/idea.service';
 import { commentService } from '../services/comment.service';
 import { likeService } from '../services/like.service';
-import { Idea, Comment } from '../types';
+import { Idea, Comment, IdeaStatus, HackathonType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
+import { projectService } from '../services/project.service';
 import CommentItem from '../components/CommentItem';
 import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
+import { Link } from 'react-router-dom';
 
 interface IdeaWithLikes extends Idea {
   comments?: Comment[];
@@ -18,7 +20,7 @@ const IdeaDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user, isAdmin } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { refreshCount } = useNotifications();
   const [idea, setIdea] = useState<IdeaWithLikes | null>(null);
   const [newComment, setNewComment] = useState('');
@@ -26,13 +28,30 @@ const IdeaDetails = () => {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isTogglingLike, setIsTogglingLike] = useState(false);
   const [error, setError] = useState('');
+  const [hasProject, setHasProject] = useState(false);
 
   // Determine where to navigate back to
   const getBackPath = () => {
+    const state = location.state as any;
+    
+    // Check if coming from admin hackathon details page
+    if (state && state.fromAdminHackathon && state.hackathonId) {
+      return `/admin/hackathons/${state.hackathonId}`;
+    }
+    
     // Check if coming from admin dashboard via location state
-    if (location.state && (location.state as any).fromAdmin) {
+    if (state && state.fromAdmin) {
       return '/admin/dashboard?tab=allPosts';
     }
+    
+    // If idea has a hackathonId and user is admin/judge, navigate back to that hackathon
+    if (idea?.hackathonId) {
+      const isAdmin = user?.role === 'ADMIN' || user?.role === 'JUDGE';
+      if (isAdmin) {
+        return `/admin/hackathons/${idea.hackathonId}`;
+      }
+    }
+    
     // Default to home/dashboard
     return '/';
   };
@@ -40,9 +59,22 @@ const IdeaDetails = () => {
   useEffect(() => {
     if (id) {
       loadIdea();
+      if (user) {
+        checkProject();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
+
+  const checkProject = async () => {
+    if (!id || !user) return;
+    try {
+      const project = await projectService.getProjectByIdeaId(id);
+      setHasProject(!!project);
+    } catch {
+      setHasProject(false);
+    }
+  };
 
   const loadIdea = async () => {
     try {
@@ -51,6 +83,19 @@ const IdeaDetails = () => {
       // Check if current user has liked this idea
       const isLiked = user && data.likes?.some((like) => like.userId === user.id);
       setIdea({ ...data, isLiked: !!isLiked });
+      
+      // Debug logging
+      console.log('Idea loaded:', {
+        id: data.id,
+        status: data.status,
+        hackathonId: data.hackathonId,
+        hasHackathon: !!data.hackathon,
+        hackathonType: data.hackathon?.hackathonType,
+        userId: data.user?.id || data.author?.id,
+        currentUserId: user?.id,
+        isOwner: user && (user.id === data.user?.id || user.id === data.author?.id),
+        projectDeadline: data.projectDeadline
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Failed to load idea');
     } finally {
@@ -172,7 +217,7 @@ const IdeaDetails = () => {
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Dashboard
+          Back
         </button>
 
         {error && (
@@ -182,8 +227,67 @@ const IdeaDetails = () => {
         )}
 
         <div className="bg-white shadow-md rounded-lg p-8 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{idea.title}</h1>
+          <div className="flex items-start justify-between mb-4">
+            <h1 className="text-3xl font-bold text-gray-900">{idea.title}</h1>
+            {(idea.status === IdeaStatus.APPROVED || idea.status === IdeaStatus.PUBLISHED) && 
+             idea.hackathonId && 
+             idea.hackathon?.hackathonType === HackathonType.HANDS_ON &&
+             user && (user.id === idea.user?.id || user.id === idea.author?.id) && (
+              <Link
+                to={`/ideas/${idea.id}/submit-project`}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm"
+              >
+                {hasProject ? 'Update Project' : 'Submit Project'}
+              </Link>
+            )}
+          </div>
           <p className="text-gray-600 mb-6 whitespace-pre-wrap">{idea.description}</p>
+          
+          {/* Approval Message for Hands-On Hackathons */}
+            {(idea.status === IdeaStatus.APPROVED || idea.status === IdeaStatus.PUBLISHED) && 
+             idea.hackathonId && 
+             (idea.hackathon?.hackathonType === HackathonType.HANDS_ON || !idea.hackathon) &&
+             user && (user.id === idea.user?.id || user.id === idea.author?.id) &&
+             !hasProject && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-green-800 mb-2">Your idea is approved!</p>
+                  {idea.projectDeadline ? (
+                    <p className="text-sm text-green-700 mb-2">
+                      <span className="font-medium">Project Submission Deadline:</span>{' '}
+                      {new Date(idea.projectDeadline).toLocaleString()}
+                      {new Date() > new Date(idea.projectDeadline) && (
+                        <span className="ml-2 text-red-600 font-medium">⚠️ Deadline has passed</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-green-700 mb-2">You can now submit your project implementation.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Only show project deadline to the idea owner */}
+          {idea.projectDeadline && 
+           idea.status !== IdeaStatus.APPROVED && 
+           user && (user.id === idea.user?.id || user.id === idea.author?.id) && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm font-medium text-blue-800">Project Deadline:</p>
+              <p className="text-blue-900">{new Date(idea.projectDeadline).toLocaleString()}</p>
+            </div>
+          )}
+          
+          {idea.rejectionReason && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm font-medium text-red-800">Rejection Reason:</p>
+              <p className="text-red-700">{idea.rejectionReason}</p>
+            </div>
+          )}
           
           <div className="flex items-center justify-between border-t pt-4">
             <div className="flex items-center space-x-4">

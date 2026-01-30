@@ -3,7 +3,7 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { ideaService } from '../../services/idea.service';
 import { hackathonService } from '../../services/hackathon.service';
 import { registrationService } from '../../services/registration.service';
-import { Idea, Hackathon, HackathonStatus } from '../../types';
+import { Idea, Hackathon, HackathonStatus, HackathonType } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import CreateIdeaForm from '../../components/CreateIdeaForm';
 import FeedPost from '../../components/FeedPost';
@@ -11,16 +11,27 @@ import EmptyFeed from '../../components/EmptyFeed';
 
 type MainTab = 'ideas' | 'hackathons';
 type HackathonTab = 'active' | 'upcoming' | 'completed';
+type HackathonTypeFilter = 'learning' | 'handsOn';
 
 const IdeasFeed = () => {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as MainTab | null;
+  const typeFilterParam = searchParams.get('type') as HackathonTypeFilter | null;
   
   // Initialize activeTab from URL param
   const [activeTab, setActiveTab] = useState<MainTab>(() => {
-    return tabParam === 'hackathons' ? 'hackathons' : 'ideas';
+    if (tabParam === 'hackathons') return 'hackathons';
+    return 'ideas';
+  });
+  
+  // Initialize hackathon type filter from URL param
+  const [hackathonTypeFilter, setHackathonTypeFilter] = useState<HackathonTypeFilter | null>(() => {
+    if (typeFilterParam && ['learning', 'handsOn'].includes(typeFilterParam)) {
+      return typeFilterParam as HackathonTypeFilter;
+    }
+    return null; // null means show all
   });
   
   // Initialize hackathonTab from URL param
@@ -47,10 +58,21 @@ const IdeasFeed = () => {
   // Sync state with URL params (for external navigation and initial load)
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    const newTab = tabFromUrl === 'hackathons' ? 'hackathons' : 'ideas';
-    // Always update if different to handle both initial load and navigation
+    let newTab: MainTab = 'ideas';
+    if (tabFromUrl === 'hackathons') newTab = 'hackathons';
+    
     if (activeTab !== newTab) {
       setActiveTab(newTab);
+    }
+    
+    // Sync hackathon type filter from URL
+    const typeFromUrl = searchParams.get('type') as HackathonTypeFilter | null;
+    if (typeFromUrl && ['learning', 'handsOn'].includes(typeFromUrl)) {
+      if (hackathonTypeFilter !== typeFromUrl) {
+        setHackathonTypeFilter(typeFromUrl);
+      }
+    } else if (!typeFromUrl && hackathonTypeFilter !== null) {
+      setHackathonTypeFilter(null);
     }
     
     // Sync hackathon subtab from URL
@@ -62,18 +84,23 @@ const IdeasFeed = () => {
     }
   }, [location.search, searchParams]); // Use location.search to detect URL changes
 
-  // Update URL when tab changes (for user clicks) - but only if URL doesn't match
+  // Update URL when tab or filter changes (for user clicks)
   useEffect(() => {
     const currentTabParam = searchParams.get('tab');
-    const urlTab = currentTabParam === 'hackathons' ? 'hackathons' : 'ideas';
     
-    // Only update URL if it doesn't match the current tab state
-    if (activeTab === 'hackathons' && urlTab !== 'hackathons') {
-      setSearchParams({ tab: 'hackathons' }, { replace: true });
-    } else if (activeTab === 'ideas' && urlTab !== 'ideas') {
+    if (activeTab === 'hackathons') {
+      const params: Record<string, string> = { tab: 'hackathons' };
+      if (hackathonTypeFilter !== null) {
+        params.type = hackathonTypeFilter;
+      }
+      if (hackathonTab !== 'active') {
+        params.subtab = hackathonTab;
+      }
+      setSearchParams(params, { replace: true });
+    } else if (activeTab === 'ideas' && currentTabParam !== null) {
       setSearchParams({}, { replace: true });
     }
-  }, [activeTab, setSearchParams]);
+  }, [activeTab, hackathonTypeFilter, hackathonTab, setSearchParams, searchParams]);
 
   useEffect(() => {
     if (activeTab === 'ideas') {
@@ -187,21 +214,60 @@ const IdeasFeed = () => {
     }
   };
 
+  // Filter hackathons by type and status
   const filteredHackathons = hackathons.filter(hackathon => {
+    // Filter by hackathon type based on filter
+    if (hackathonTypeFilter === 'learning' && hackathon.hackathonType !== HackathonType.LEARNING) {
+      return false;
+    }
+    if (hackathonTypeFilter === 'handsOn' && hackathon.hackathonType !== HackathonType.HANDS_ON) {
+      return false;
+    }
+    // If filter is null, don't filter by type (show all)
+    
+    // Filter by status
     if (hackathonTab === 'active') return hackathon.status === HackathonStatus.ACTIVE;
     if (hackathonTab === 'upcoming') return hackathon.status === HackathonStatus.PENDING;
     if (hackathonTab === 'completed') return hackathon.status === HackathonStatus.COMPLETED;
     return true;
   });
 
-  // Calculate counts for each status
-  const activeCount = hackathons.filter(h => h.status === HackathonStatus.ACTIVE).length;
-  const upcomingCount = hackathons.filter(h => h.status === HackathonStatus.PENDING).length;
-  const completedCount = hackathons.filter(h => h.status === HackathonStatus.COMPLETED).length;
+  // Calculate counts for each status based on hackathon type filter
+  const getFilteredHackathonsForCounts = () => {
+    if (hackathonTypeFilter === 'learning') {
+      return hackathons.filter(h => h.hackathonType === HackathonType.LEARNING);
+    }
+    if (hackathonTypeFilter === 'handsOn') {
+      return hackathons.filter(h => h.hackathonType === HackathonType.HANDS_ON);
+    }
+    return hackathons; // null means all
+  };
+  
+  const currentHackathons = getFilteredHackathonsForCounts();
+  const activeCount = currentHackathons.filter(h => h.status === HackathonStatus.ACTIVE).length;
+  const upcomingCount = currentHackathons.filter(h => h.status === HackathonStatus.PENDING).length;
+  const completedCount = currentHackathons.filter(h => h.status === HackathonStatus.COMPLETED).length;
 
   const canRegister = (hackathon: Hackathon) => {
-    if (!hackathon.registrationDeadline) return true;
-    return new Date() < new Date(hackathon.registrationDeadline);
+    const now = new Date();
+    
+    // For Hands-On hackathons, check registration start and end dates
+    if (hackathon.hackathonType === HackathonType.HANDS_ON) {
+      if (hackathon.registrationStartDate && now < new Date(hackathon.registrationStartDate)) {
+        return false; // Registration hasn't started yet
+      }
+      if (hackathon.registrationEndDate && now > new Date(hackathon.registrationEndDate)) {
+        return false; // Registration has ended
+      }
+      return true;
+    }
+    
+    // For Learning hackathons, check registration deadline
+    if (hackathon.registrationDeadline) {
+      return now < new Date(hackathon.registrationDeadline);
+    }
+    
+    return true;
   };
 
   return (
@@ -213,7 +279,7 @@ const IdeasFeed = () => {
             onClick={() => setActiveTab('ideas')}
             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'ideas'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
@@ -288,13 +354,33 @@ const IdeasFeed = () => {
       {/* Hackathons Tab Content */}
       {activeTab === 'hackathons' && (
         <>
+          {/* Hackathon Type Filter Dropdown */}
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-sm text-gray-600 font-medium">Filter by type:</span>
+            <div className="relative">
+              <select
+                value={hackathonTypeFilter || ''}
+                onChange={(e) => setHackathonTypeFilter(e.target.value ? e.target.value as HackathonTypeFilter : null)}
+                className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer appearance-none pr-8"
+              >
+                <option value="">All Hackathons</option>
+                <option value="learning">Learning</option>
+                <option value="handsOn">Hands-On</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
           {/* Hackathon Sub-tabs */}
           <div className="mb-6">
             <nav className="flex space-x-4">
               <button
                 onClick={() => {
                   setHackathonTab('active');
-                  setSearchParams({ tab: 'hackathons', subtab: 'active' }, { replace: true });
                 }}
                 className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
                   hackathonTab === 'active'
@@ -314,7 +400,6 @@ const IdeasFeed = () => {
               <button
                 onClick={() => {
                   setHackathonTab('upcoming');
-                  setSearchParams({ tab: 'hackathons', subtab: 'upcoming' }, { replace: true });
                 }}
                 className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
                   hackathonTab === 'upcoming'
@@ -323,9 +408,8 @@ const IdeasFeed = () => {
                 }`}
               >
                 <span>Upcoming</span>
-                {/* <span className={`text-xs px-1.5 py-0.5 rounded-full ${ */}
-
-                <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${                  hackathonTab === 'upcoming'
+                <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${
+                  hackathonTab === 'upcoming'
                     ? 'bg-white/20 text-white'
                     : 'bg-gray-200 text-gray-600'
                 }`}>
@@ -335,7 +419,6 @@ const IdeasFeed = () => {
               <button
                 onClick={() => {
                   setHackathonTab('completed');
-                  setSearchParams({ tab: 'hackathons', subtab: 'completed' }, { replace: true });
                 }}
                 className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
                   hackathonTab === 'completed'
@@ -361,6 +444,12 @@ const IdeasFeed = () => {
             </div>
           )}
 
+          {hackathonsError && (
+            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4">
+              <p className="text-sm text-red-800">{hackathonsError}</p>
+            </div>
+          )}
+
           {isLoadingHackathons ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -368,7 +457,9 @@ const IdeasFeed = () => {
             </div>
           ) : filteredHackathons.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-md">
-              <p className="text-gray-500 text-lg">No {hackathonTab} hackathons found</p>
+              <p className="text-gray-500 text-lg">
+                No {hackathonTab} {hackathonTypeFilter ? (hackathonTypeFilter === 'learning' ? 'Learning' : 'Hands-On') : ''} hackathons found
+              </p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -399,13 +490,18 @@ const IdeasFeed = () => {
                   });
                 };
 
+                // Determine icon color based on hackathon type
+                const iconColor = hackathon.hackathonType === HackathonType.HANDS_ON ? 'text-orange-600' : 'text-blue-600';
+                const linkColor = hackathon.hackathonType === HackathonType.HANDS_ON ? 'text-orange-600 hover:text-orange-700' : 'text-blue-600 hover:text-blue-700';
+                const buttonColor = hackathon.hackathonType === HackathonType.HANDS_ON ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700';
+
                 return (
                   <div key={hackathon.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-3 flex-1">
                         {/* Rocket Icon */}
                         <div className="flex-shrink-0 mt-1">
-                          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className={`w-6 h-6 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
                         </div>
@@ -438,14 +534,36 @@ const IdeasFeed = () => {
                               </div>
                             )}
                             
-                            {/* Registration Deadline */}
-                            {hackathon.registrationDeadline && (
+                            {/* Registration Deadline (for Learning Hackathons) */}
+                            {hackathon.hackathonType === HackathonType.LEARNING && hackathon.registrationDeadline && (
                               <div className="flex items-center gap-2">
                                 <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
                                 <span>Registration ends: {formatDateShort(hackathon.registrationDeadline)}</span>
                               </div>
+                            )}
+                            
+                            {/* Registration Period (for Hands-On Hackathons) */}
+                            {hackathon.hackathonType === HackathonType.HANDS_ON && (
+                              <>
+                                {hackathon.registrationStartDate && (
+                                  <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>Registration starts: {formatDateShort(hackathon.registrationStartDate)}</span>
+                                  </div>
+                                )}
+                                {hackathon.registrationEndDate && (
+                                  <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                    </svg>
+                                    <span>Registration ends: {formatDateShort(hackathon.registrationEndDate)}</span>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -454,27 +572,36 @@ const IdeasFeed = () => {
 
                     <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                       <Link
-                        to={`/hackathons/${hackathon.id}?subtab=${hackathonTab}`}
-                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                        to={`/hackathons/${hackathon.id}?subtab=${hackathonTab}${hackathonTypeFilter ? `&type=${hackathonTypeFilter}` : ''}`}
+                        className={`${linkColor} font-medium text-sm`}
                       >
                         View Details →
                       </Link>
                       {user && hackathon.status !== HackathonStatus.COMPLETED && (
-                        <div>
-                          {isRegistered ? (
+                        <div className="flex items-center gap-2">
+                          {hackathon.hackathonType === HackathonType.HANDS_ON && isRegistered && (
+                            <Link
+                              to={`/hackathons/${hackathon.id}/submit-idea`}
+                              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+                            >
+                              Submit
+                            </Link>
+                          )}
+                          {!isRegistered && (
+                            <button
+                              onClick={() => handleRegister(hackathon.id)}
+                              disabled={isRegistering || !canRegister(hackathon) || isRegistered}
+                              className={`px-4 py-2 ${buttonColor} text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium`}
+                            >
+                              {isRegistering ? 'Registering...' : 'Register'}
+                            </button>
+                          )}
+                          {isRegistered && hackathon.hackathonType !== HackathonType.HANDS_ON && (
                             <button
                               disabled={true}
                               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium cursor-not-allowed"
                             >
                               Registered
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleRegister(hackathon.id)}
-                              disabled={isRegistering || !canRegister(hackathon) || isRegistered}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                            >
-                              {isRegistering ? 'Registering...' : 'Register'}
                             </button>
                           )}
                         </div>

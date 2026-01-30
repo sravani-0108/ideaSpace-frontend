@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
 
 const LeftSidebar = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdminOrJudge } = useAuth();
   const location = useLocation();
 
   if (!user) return null;
@@ -93,7 +93,21 @@ const LeftSidebar = () => {
             <span>Saved Items</span>
           </Link>
 
-          {isAdmin && (
+          <Link
+            to="/my-projects"
+            className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              isActive('/my-projects')
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <span>My Solutions</span>
+          </Link>
+
+          {isAdminOrJudge && (
             <Link
               to="/admin/review"
               className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${

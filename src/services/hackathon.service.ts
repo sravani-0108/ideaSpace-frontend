@@ -15,6 +15,9 @@ export const hackathonService = {
     startDate: string;
     endDate: string;
     registrationDeadline?: string;
+    registrationStartDate?: string;
+    registrationEndDate?: string;
+    hackathonType?: string;
     location: string;
     onlineLink?: string;
   }): Promise<Hackathon> => {

@@ -4,6 +4,7 @@ import { Idea, Comment } from '../types';
 export interface CreateIdeaData {
   title: string;
   description: string;
+  hackathonId?: string;
 }
 
 interface ApiResponse<T> {
@@ -69,6 +70,14 @@ export const ideaService = {
     const response = await api.get<ApiResponse<IdeasResponse>>(`/ideas/user/${userId}?page=${page}&limit=${limit}`);
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.message || 'Failed to fetch user ideas');
+    }
+    return response.data.data.ideas;
+  },
+
+  getHandsOnHackathonIdeas: async (hackathonId: string, page: number = 1, limit: number = 10): Promise<Idea[]> => {
+    const response = await api.get<ApiResponse<IdeasResponse>>(`/ideas/hackathon/${hackathonId}?page=${page}&limit=${limit}`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to fetch hackathon ideas');
     }
     return response.data.data.ideas;
   },

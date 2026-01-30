@@ -1,6 +1,7 @@
 export enum UserRole {
   USER = 'USER',
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
+  JUDGE = 'JUDGE'
 }
 
 export enum IdeaStatus {
@@ -25,6 +26,21 @@ export enum HackathonStatus {
   COMPLETED = 'COMPLETED'
 }
 
+export enum HackathonType {
+  LEARNING = 'LEARNING',
+  HANDS_ON = 'HANDS_ON'
+}
+
+export enum ProjectStatus {
+  NOT_SUBMITTED = 'NOT_SUBMITTED',
+  SUBMITTED = 'SUBMITTED',
+  LATE = 'LATE',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  COMPLETED = 'COMPLETED',
+  NEEDS_CHANGES = 'NEEDS_CHANGES',
+  DISQUALIFIED = 'DISQUALIFIED'
+}
+
 export interface Hackathon {
   id: string;
   title: string;
@@ -33,6 +49,9 @@ export interface Hackathon {
   startDate: string;
   endDate: string;
   registrationDeadline?: string;
+  registrationStartDate?: string;
+  registrationEndDate?: string;
+  hackathonType: HackathonType;
   location: string;
   onlineLink?: string;
   status: HackathonStatus;
@@ -101,6 +120,10 @@ export interface Idea {
   title: string;
   description: string;
   status: IdeaStatus;
+  hackathonId?: string;
+  hackathon?: Hackathon;
+  rejectionReason?: string;
+  projectDeadline?: string;
   author?: {
     id: string;
     email: string;
@@ -118,6 +141,30 @@ export interface Idea {
   createdAt: string;
   updatedAt: string;
   isLiked?: boolean;
+}
+
+export interface Project {
+  id: string;
+  ideaId: string;
+  userId: string;
+  status: ProjectStatus;
+  githubUrl?: string;
+  demoVideoUrl?: string;
+  documentationUrl?: string;
+  zipFilePath?: string;
+  projectDescription?: string;
+  implementationDetails?: string;
+  pitchVideoUrl?: string;
+  presentationUrl?: string;
+  judgeFeedback?: string;
+  reviewedBy?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  idea?: Idea;
+  user?: User;
+  reviewer?: User;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Comment {
