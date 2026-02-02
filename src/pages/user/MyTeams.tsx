@@ -5,6 +5,7 @@ import { meetingService } from '../../services/meeting.service';
 import { Team, Meeting, HackathonRegistration } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserDisplayName } from '../../utils/user.util';
+import LeftSidebar from '../../components/LeftSidebar';
 
 const MyTeams = () => {
   const { user } = useAuth();
@@ -109,11 +110,16 @@ const MyTeams = () => {
   }, [teams, meetings]);
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Teams</h1>
-        <p className="mt-1 text-gray-600 text-sm">Microsoft Teams and team details</p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex gap-6">
+          <LeftSidebar />
+          
+          <div className="flex-1">
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-gray-900">My Teams</h1>
+              <p className="mt-1 text-gray-600 text-sm">Microsoft Teams and team details</p>
+            </div>
 
       {error && (
         <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4">
@@ -232,6 +238,9 @@ const MyTeams = () => {
           ))}
         </div>
       )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

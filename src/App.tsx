@@ -24,6 +24,7 @@ import SubmitIdeaForHackathon from './pages/user/SubmitIdeaForHackathon';
 import HandsOnHackathonIdeas from './pages/user/HandsOnHackathonIdeas';
 import ProjectSubmission from './pages/user/ProjectSubmission';
 import MyProjects from './pages/user/MyProjects';
+import MyTeams from './pages/user/MyTeams';
 import JudgeDashboard from './pages/judge/JudgeDashboard';
 import IdeaReview from './pages/judge/IdeaReview';
 import ProjectReview from './pages/judge/ProjectReview';
@@ -104,6 +105,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <MyProjects />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-teams"
+        element={
+          <ProtectedRoute>
+            <MyTeams />
           </ProtectedRoute>
         }
       />

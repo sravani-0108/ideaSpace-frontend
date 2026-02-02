@@ -44,7 +44,6 @@ export const adminService = {
         }
       } catch (error) {
         // If publish fails, return the approved idea
-        console.warn('Auto-publish failed, idea is approved but not published:', error);
       }
     }
     
@@ -57,6 +56,36 @@ export const adminService = {
       throw new Error(response.data.message || 'Failed to reject idea');
     }
     return response.data.data;
+  },
+
+  updateIdeaStatus: async (id: string, status: string, data?: { rejectionReason?: string; projectDeadline?: string; statusDeadline?: string }): Promise<Idea> => {
+    // Handle Hands-On hackathon specific statuses
+    const handsOnStatuses = ['UNDER_REVIEW', 'PITCHING', 'ENHANCEMENTS', 'IMPLEMENTATION', 'COMPLETED'];
+    
+    if (handsOnStatuses.includes(status)) {
+      const response = await api.patch<ApiResponse<Idea>>(`/admin/ideas/${id}/status`, {
+        status,
+        statusDeadline: data?.statusDeadline,
+      });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.message || 'Failed to update idea status');
+      }
+      return response.data.data;
+    }
+    
+    // Handle legacy statuses
+    if (status === 'APPROVED') {
+      return await adminService.approveIdea(id, { projectDeadline: data?.projectDeadline });
+    } else if (status === 'REJECTED') {
+      return await adminService.rejectIdea(id, { rejectionReason: data?.rejectionReason });
+    } else if (status === 'PUBLISHED') {
+      const response = await api.patch<ApiResponse<Idea>>(`/admin/ideas/${id}/publish`);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.message || 'Failed to publish idea');
+      }
+      return response.data.data;
+    }
+    throw new Error('Invalid status');
   },
 };
 

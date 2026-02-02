@@ -75,15 +75,6 @@ const AdminDashboard = () => {
       setError('');
       if (taskView === 'pending') {
         const data = await adminService.getIdeasForReview();
-        // Debug: Log hackathon types
-        console.log('📋 All pending ideas loaded:', data.map(idea => ({
-          id: idea.id,
-          title: idea.title.substring(0, 40),
-          hackathonId: idea.hackathonId || 'NO HACKATHON ID',
-          hasHackathonObject: !!idea.hackathon,
-          hackathonType: idea.hackathon?.hackathonType || 'N/A',
-          hackathonTitle: idea.hackathon?.title || 'N/A'
-        })));
         setPendingIdeas(data);
       } else if (taskView === 'allPosts') {
         await loadAllPosts();

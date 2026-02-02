@@ -83,7 +83,7 @@ const FeedPost = ({
       const ideaDetails = await ideaService.getIdeaById(idea.id);
       setComments(ideaDetails.comments || []);
     } catch (error) {
-      console.error('Failed to load comments:', error);
+      // Failed to load comments
     } finally {
       setIsLoadingComments(false);
     }
@@ -108,7 +108,7 @@ const FeedPost = ({
         setIsSaved(true);
       }
     } catch (error) {
-      console.error('Failed to toggle save:', error);
+      // Failed to toggle save
     } finally {
       setIsTogglingSave(false);
     }
@@ -139,7 +139,7 @@ const FeedPost = ({
         refreshCount();
       }
     } catch (error: any) {
-      console.error('Failed to toggle like:', error);
+      // Failed to toggle like
     } finally {
       setIsTogglingLike(false);
     }
@@ -159,7 +159,7 @@ const FeedPost = ({
       setNewComment('');
       refreshCount();
     } catch (error) {
-      console.error('Failed to post comment:', error);
+      // Failed to post comment
     } finally {
       setIsSubmittingComment(false);
     }
@@ -234,7 +234,7 @@ const FeedPost = ({
       }
       setShowEditModal(false);
     } catch (error: any) {
-      console.error('Failed to update idea:', error);
+      // Failed to update idea
       alert(error.response?.data?.message || 'Failed to update idea');
     } finally {
       setIsUpdating(false);

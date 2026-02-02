@@ -70,15 +70,6 @@ const Profile = () => {
       // Create preview using URL.createObjectURL (more reliable and faster)
       const objectUrl = URL.createObjectURL(file);
       setProfilePicturePreview(objectUrl);
-      
-      // Also try FileReader as backup (for data URL if needed)
-      // const reader = new FileReader();
-      // reader.onload = () => {
-      //   if (reader.result) {
-      //     setProfilePicturePreview(reader.result as string);
-      //   }
-      // };
-      // reader.readAsDataURL(file);
     } else {
       // Reset if no file selected
       setProfilePicture(null);
@@ -114,17 +105,13 @@ const Profile = () => {
       setProfilePicture(null);
       
       // Update preview with the new profile picture from server
-      console.log('Updated user from server:', updatedUser);
-      console.log('Profile picture from server:', updatedUser.profilePicture);
       if (updatedUser.profilePicture) {
         const pictureUrl = getProfilePictureUrl(updatedUser);
-        console.log('Constructed picture URL:', pictureUrl);
         // Add timestamp to force refresh
         const pictureUrlWithCacheBust = pictureUrl ? `${pictureUrl}?t=${Date.now()}` : null;
         setProfilePicturePreview(pictureUrlWithCacheBust);
         setImageError(false); // Reset error state for new image
       } else {
-        console.log('No profile picture in response');
         setProfilePicturePreview(null);
         setImageError(false);
       }
@@ -238,10 +225,8 @@ const Profile = () => {
                           style={{ display: 'block' }}
                           onLoad={() => {
                             setImageError(false);
-                            console.log('✅ Image loaded:', imageUrl);
                           }}
                           onError={() => {
-                            console.error('❌ Image failed to load:', imageUrl);
                             setImageError(true);
                           }}
                         />

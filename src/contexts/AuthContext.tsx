@@ -39,7 +39,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })
         .catch((error) => {
           // Silently fail - token might be expired or user not authenticated
-          console.error('Failed to refresh user profile:', error);
         });
     }
   }, []);

@@ -39,7 +39,7 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
           const all = await hackathonService.getAllHackathons();
           setAllHackathons(all);
         } catch (error) {
-          console.error('Failed to load all hackathons:', error);
+          // Failed to load all hackathons
         }
       };
       loadAllHackathons();
@@ -157,7 +157,7 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
         onHackathonRegistered();
       }
     } catch (error) {
-      console.error('Failed to register for hackathon:', error);
+      // Failed to register for hackathon
     } finally {
       setRegisteringIds(prev => {
         const newSet = new Set(prev);

@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ideaService } from '../../services/idea.service';
 import { hackathonService } from '../../services/hackathon.service';
 import { projectService } from '../../services/project.service';
-import { Hackathon, HackathonType, Idea, IdeaStatus } from '../../types';
+import { registrationService } from '../../services/registration.service';
+import { Hackathon, HackathonStatus, HackathonType, Idea, IdeaStatus } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
 const SubmitIdeaForHackathon = () => {
@@ -11,7 +12,16 @@ const SubmitIdeaForHackathon = () => {
   const navigate = useNavigate();
   useAuth(); // Keep auth context active
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
-  const [formData, setFormData] = useState({ title: '', description: '' });
+  const [formData, setFormData] = useState({ 
+    title: '', 
+    description: '',
+    gitRepositoryUrl: '',
+  });
+  const [files, setFiles] = useState<{
+    documentation?: File;
+    video?: File;
+    zipFile?: File;
+  }>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHackathon, setIsLoadingHackathon] = useState(true);
@@ -20,24 +30,58 @@ const SubmitIdeaForHackathon = () => {
   const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
   const [existingIdea, setExistingIdea] = useState<Idea | null>(null);
   const [ideasWithProjects, setIdeasWithProjects] = useState<Set<string>>(new Set());
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [hasUserEdited, setHasUserEdited] = useState(false);
+  const [isRegistered, setIsRegistered] = useState<boolean>(false);
+  const [isCheckingRegistration, setIsCheckingRegistration] = useState(true);
 
+  // Get storage key for this hackathon
+  const getStorageKey = () => `hackathon_idea_form_${hackathonId}`;
+
+  // Load form data from localStorage on mount
   useEffect(() => {
     if (hackathonId) {
+      const storageKey = getStorageKey();
+      const savedData = localStorage.getItem(storageKey);
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          setFormData(parsed.formData || { title: '', description: '', gitRepositoryUrl: '' });
+          setHasUserEdited(parsed.hasUserEdited || false);
+        } catch (e) {
+          // Failed to parse saved form data, continue with default
+        }
+      }
+      setIsInitialLoad(true);
       loadHackathon();
       loadMyIdeas();
     }
   }, [hackathonId]);
 
+  // Save form data to localStorage whenever it changes (if user has edited)
+  useEffect(() => {
+    if (hackathonId && hasUserEdited) {
+      const storageKey = getStorageKey();
+      const dataToSave = {
+        formData,
+        hasUserEdited,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+    }
+  }, [formData, hasUserEdited, hackathonId]);
+
   // Reload ideas when page becomes visible (in case idea was updated from another page)
+  // But don't overwrite form data if user has unsaved changes
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && hackathonId) {
+      if (!document.hidden && hackathonId && !hasUserEdited) {
         loadMyIdeas();
       }
     };
 
     const handleFocus = () => {
-      if (hackathonId) {
+      if (hackathonId && !hasUserEdited) {
         loadMyIdeas();
       }
     };
@@ -49,22 +93,40 @@ const SubmitIdeaForHackathon = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [hackathonId]);
+  }, [hackathonId, hasUserEdited]);
 
   // Update form data when myIdeas changes (e.g., after update from modal)
+  // Only update if it's initial load or user hasn't edited yet
   useEffect(() => {
-    if (myIdeas.length > 0) {
-      const latestIdea = myIdeas[0];
-      setExistingIdea(latestIdea);
-      setFormData({
-        title: latestIdea.title,
-        description: latestIdea.description,
-      });
-    } else {
-      setExistingIdea(null);
-      setFormData({ title: '', description: '' });
+    if (isInitialLoad || !hasUserEdited) {
+      if (myIdeas.length > 0) {
+        const latestIdea = myIdeas[0];
+        setExistingIdea(latestIdea);
+        // Only update form data if there's no saved data in localStorage
+        const storageKey = getStorageKey();
+        const savedData = localStorage.getItem(storageKey);
+        if (!savedData) {
+          setFormData({
+            title: latestIdea.title,
+            description: latestIdea.description,
+            gitRepositoryUrl: (latestIdea as any).gitRepositoryUrl || '',
+          });
+        }
+      } else {
+        // Only clear form on initial load if no idea exists and no saved data
+        if (isInitialLoad) {
+          const storageKey = getStorageKey();
+          const savedData = localStorage.getItem(storageKey);
+          if (!savedData) {
+            setExistingIdea(null);
+            setFormData({ title: '', description: '', gitRepositoryUrl: '' });
+            setFiles({});
+          }
+        }
+      }
+      setIsInitialLoad(false);
     }
-  }, [myIdeas]);
+  }, [myIdeas, isInitialLoad, hasUserEdited]);
 
   useEffect(() => {
     // Check for projects for approved/published ideas
@@ -101,16 +163,16 @@ const SubmitIdeaForHackathon = () => {
       const data = await hackathonService.getHackathonById(hackathonId);
       setHackathon(data);
       
-      // Check if registration period is active
+      // Check if user is registered for this hackathon
       if (data.hackathonType === HackathonType.HANDS_ON) {
-        const now = new Date();
-        const regStart = data.registrationStartDate ? new Date(data.registrationStartDate) : null;
-        const regEnd = data.registrationEndDate ? new Date(data.registrationEndDate) : null;
-        
-        if (regStart && now < regStart) {
-          setMessage('Idea submission has not started yet');
-        } else if (regEnd && now > regEnd) {
-          setMessage('Idea submission period has ended');
+        try {
+          setIsCheckingRegistration(true);
+          const registered = await registrationService.checkRegistrationStatus(hackathonId);
+          setIsRegistered(registered);
+        } catch (error) {
+          setIsRegistered(false);
+        } finally {
+          setIsCheckingRegistration(false);
         }
       }
     } catch (error: any) {
@@ -129,22 +191,32 @@ const SubmitIdeaForHackathon = () => {
       const hackathonIdeas = allIdeas.filter(idea => idea.hackathonId === hackathonId);
       setMyIdeas(hackathonIdeas);
       
-      // If user has an existing idea, pre-fill the form
-      if (hackathonIdeas.length > 0) {
-        const latestIdea = hackathonIdeas[0]; // Get the first/most recent idea
-        setExistingIdea(latestIdea);
-        // Always update form data with latest idea data
-        setFormData({
-          title: latestIdea.title,
-          description: latestIdea.description,
-        });
-      } else {
-        setExistingIdea(null);
-        // Clear form if no idea exists
-        setFormData({ title: '', description: '' });
+      // Only update form data if it's initial load or user hasn't edited
+      // And only if there's no saved data in localStorage
+      if (isInitialLoad || !hasUserEdited) {
+        const storageKey = getStorageKey();
+        const savedData = localStorage.getItem(storageKey);
+        if (!savedData) {
+          if (hackathonIdeas.length > 0) {
+            const latestIdea = hackathonIdeas[0]; // Get the first/most recent idea
+            setExistingIdea(latestIdea);
+            // Update form data with latest idea data only if not edited
+            setFormData({
+              title: latestIdea.title,
+              description: latestIdea.description,
+              gitRepositoryUrl: (latestIdea as any).gitRepositoryUrl || '',
+            });
+          } else {
+            // Only clear form on initial load if no idea exists
+            if (isInitialLoad) {
+              setExistingIdea(null);
+              setFormData({ title: '', description: '', gitRepositoryUrl: '' });
+              setFiles({});
+            }
+          }
+        }
       }
     } catch (error: any) {
-      console.error('Failed to load ideas:', error);
     } finally {
       setIsLoadingIdeas(false);
     }
@@ -172,13 +244,26 @@ const SubmitIdeaForHackathon = () => {
   const canSubmit = () => {
     if (!hackathon || hackathon.hackathonType !== HackathonType.HANDS_ON) return false;
     
-    const now = new Date();
-    const regStart = hackathon.registrationStartDate ? new Date(hackathon.registrationStartDate) : null;
-    const regEnd = hackathon.registrationEndDate ? new Date(hackathon.registrationEndDate) : null;
+    // Must be OPEN status
+    if (hackathon.status !== HackathonStatus.OPEN) {
+      return false;
+    }
     
-    if (regStart && now < regStart) return false;
-    if (regEnd && now > regEnd) return false;
+    // If user has an existing idea, they can always update it (they're already registered)
+    if (existingIdea) {
+      return true;
+    }
     
+    // For new submissions, check if user is registered
+    // If NOT registered, check registration deadline
+    if (!isRegistered) {
+      const now = new Date();
+      if (hackathon.registrationDeadline && now > new Date(hackathon.registrationDeadline)) {
+        return false; // Registration deadline has passed and user is not registered
+      }
+    }
+    
+    // If registered, allow submission regardless of registration deadline
     return true;
   };
 
@@ -196,12 +281,23 @@ const SubmitIdeaForHackathon = () => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         hackathonId: hackathonId,
+        gitRepositoryUrl: formData.gitRepositoryUrl.trim() || undefined,
+        documentationFile: files.documentation,
+        videoFile: files.video,
+        zipFile: files.zipFile,
       });
       setMessage(existingIdea 
         ? 'Idea updated successfully! It will be reviewed by judges.' 
         : 'Idea submitted successfully! It will be reviewed by judges.');
-      // Reload ideas to show the updated submission
+      // Clear saved form data from localStorage
+      const storageKey = getStorageKey();
+      localStorage.removeItem(storageKey);
+      // Reset edit flag and reload ideas to show the updated submission
+      setHasUserEdited(false);
+      setIsInitialLoad(true);
       loadMyIdeas();
+      // Clear file inputs
+      setFiles({});
     } catch (error: any) {
       setMessage(error.response?.data?.message || 'Failed to submit idea. Please try again.');
     } finally {
@@ -258,17 +354,26 @@ const SubmitIdeaForHackathon = () => {
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-semibold text-blue-900 mb-2">Registration Period</h3>
             <div className="text-sm text-blue-800">
-              {hackathon.registrationStartDate && (
-                <p>Start: {new Date(hackathon.registrationStartDate).toLocaleString()}</p>
+              {hackathon.registrationDeadline && (
+                <p>Submission Deadline: {new Date(hackathon.registrationDeadline).toLocaleString()}</p>
               )}
-              {hackathon.registrationEndDate && (
-                <p>End: {new Date(hackathon.registrationEndDate).toLocaleString()}</p>
-              )}
-              {!submissionAllowed && (
-                <p className="mt-2 font-medium text-red-600">
-                  {message || 'Idea submission is not currently available'}
+              {isCheckingRegistration ? (
+                <p className="mt-2">Checking registration status...</p>
+              ) : !isRegistered && !existingIdea ? (
+                <p className="mt-2 font-medium text-orange-600">
+                  You need to register for this hackathon before submitting an idea.
                 </p>
-              )}
+              ) : !submissionAllowed && !existingIdea ? (
+                <p className="mt-2 font-medium text-red-600">
+                  {hackathon.registrationDeadline && new Date() > new Date(hackathon.registrationDeadline)
+                    ? 'Idea submission deadline has passed'
+                    : message || 'Idea submission is not currently available'}
+                </p>
+              ) : existingIdea ? (
+                <p className="mt-2 font-medium text-green-600">
+                  You can update your submission below.
+                </p>
+              ) : null}
             </div>
           </div>
         )}
@@ -293,7 +398,10 @@ const SubmitIdeaForHackathon = () => {
                 type="text"
                 id="title"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, title: e.target.value });
+                  setHasUserEdited(true);
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter your idea title"
                 disabled={!submissionAllowed}
@@ -309,12 +417,127 @@ const SubmitIdeaForHackathon = () => {
                 id="description"
                 rows={8}
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, description: e.target.value });
+                  setHasUserEdited(true);
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 placeholder="Describe your idea in detail. What problem does it solve? How will it work?"
                 disabled={!submissionAllowed}
               />
               {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+            </div>
+
+            {/* File Uploads Section */}
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="text-lg font-semibold text-gray-900">Attachments</h3>
+              
+              {/* Git Repository URL */}
+              <div>
+                <label htmlFor="gitRepositoryUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                  Git Repository URL
+                </label>
+                <input
+                  type="url"
+                  id="gitRepositoryUrl"
+                  value={formData.gitRepositoryUrl}
+                  onChange={(e) => {
+                    setFormData({ ...formData, gitRepositoryUrl: e.target.value });
+                    setHasUserEdited(true);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://github.com/username/repo"
+                  disabled={!submissionAllowed}
+                />
+                {errors.gitRepositoryUrl && <p className="mt-1 text-sm text-red-600">{errors.gitRepositoryUrl}</p>}
+              </div>
+
+              {/* Documentation File */}
+              <div>
+                <label htmlFor="documentation" className="block text-sm font-medium text-gray-700 mb-2">
+                  Documentation (PDF, DOC, DOCX)
+                </label>
+                <input
+                  type="file"
+                  id="documentation"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setFiles({ ...files, documentation: file });
+                      setHasUserEdited(true);
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!submissionAllowed}
+                />
+                {files.documentation && (
+                  <p className="mt-1 text-sm text-gray-600">Selected: {files.documentation.name}</p>
+                )}
+                {existingIdea && (existingIdea as any).documentationUrl && !files.documentation && (
+                  <p className="mt-1 text-sm text-blue-600">
+                    Current: <a href={(existingIdea as any).documentationUrl} target="_blank" rel="noopener noreferrer" className="underline">View documentation</a>
+                  </p>
+                )}
+              </div>
+
+              {/* Video File */}
+              <div>
+                <label htmlFor="video" className="block text-sm font-medium text-gray-700 mb-2">
+                  Video (MP4, MOV, AVI)
+                </label>
+                <input
+                  type="file"
+                  id="video"
+                  accept="video/mp4,video/quicktime,video/x-msvideo"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setFiles({ ...files, video: file });
+                      setHasUserEdited(true);
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!submissionAllowed}
+                />
+                {files.video && (
+                  <p className="mt-1 text-sm text-gray-600">Selected: {files.video.name}</p>
+                )}
+                {existingIdea && (existingIdea as any).videoUrl && !files.video && (
+                  <p className="mt-1 text-sm text-blue-600">
+                    Current: <a href={(existingIdea as any).videoUrl} target="_blank" rel="noopener noreferrer" className="underline">View video</a>
+                  </p>
+                )}
+              </div>
+
+              {/* ZIP File */}
+              <div>
+                <label htmlFor="zipFile" className="block text-sm font-medium text-gray-700 mb-2">
+                  ZIP File
+                </label>
+                <input
+                  type="file"
+                  id="zipFile"
+                  accept=".zip"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setFiles({ ...files, zipFile: file });
+                      setHasUserEdited(true);
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!submissionAllowed}
+                />
+                {files.zipFile && (
+                  <p className="mt-1 text-sm text-gray-600">Selected: {files.zipFile.name}</p>
+                )}
+                {existingIdea && (existingIdea as any).zipFilePath && !files.zipFile && (
+                  <p className="mt-1 text-sm text-blue-600">
+                    Current: <a href={(existingIdea as any).zipFilePath} target="_blank" rel="noopener noreferrer" className="underline">Download ZIP</a>
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-4">
@@ -353,8 +576,13 @@ const SubmitIdeaForHackathon = () => {
             <div className="space-y-4">
               {myIdeas.slice(0, 1).map((idea) => {
                 const getStatusBadge = (status: IdeaStatus) => {
-                  const styles = {
+                  const styles: Record<string, string> = {
                     [IdeaStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
+                    [IdeaStatus.UNDER_REVIEW]: 'bg-purple-100 text-purple-800',
+                    [IdeaStatus.PITCHING]: 'bg-blue-100 text-blue-800',
+                    [IdeaStatus.ENHANCEMENTS]: 'bg-orange-100 text-orange-800',
+                    [IdeaStatus.IMPLEMENTATION]: 'bg-indigo-100 text-indigo-800',
+                    [IdeaStatus.COMPLETED]: 'bg-green-100 text-green-800',
                     [IdeaStatus.APPROVED]: 'bg-green-100 text-green-800',
                     [IdeaStatus.PUBLISHED]: 'bg-blue-100 text-blue-800',
                     [IdeaStatus.REJECTED]: 'bg-red-100 text-red-800',
@@ -363,7 +591,18 @@ const SubmitIdeaForHackathon = () => {
                 };
 
                 const getStatusDisplay = (status: IdeaStatus) => {
-                  return status.charAt(0) + status.slice(1).toLowerCase();
+                  const statusMap: Record<string, string> = {
+                    [IdeaStatus.PENDING]: 'Submitted',
+                    [IdeaStatus.UNDER_REVIEW]: 'Under Review',
+                    [IdeaStatus.PITCHING]: 'Pitching',
+                    [IdeaStatus.ENHANCEMENTS]: 'Enhancements',
+                    [IdeaStatus.IMPLEMENTATION]: 'Implementation',
+                    [IdeaStatus.COMPLETED]: 'Completed',
+                    [IdeaStatus.APPROVED]: 'Approved',
+                    [IdeaStatus.REJECTED]: 'Rejected',
+                    [IdeaStatus.PUBLISHED]: 'Published',
+                  };
+                  return statusMap[status] || status.charAt(0) + status.slice(1).toLowerCase();
                 };
 
                 return (
@@ -375,6 +614,45 @@ const SubmitIdeaForHackathon = () => {
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm mb-2 line-clamp-3">{idea.description}</p>
+                    
+                    {/* Show uploaded files if available */}
+                    {(idea.gitRepositoryUrl || idea.documentationUrl || idea.videoUrl || idea.zipFilePath) && (
+                      <div className="mb-3 space-y-1">
+                        {idea.gitRepositoryUrl && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">Git Repo:</span>{' '}
+                            <a href={idea.gitRepositoryUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              {idea.gitRepositoryUrl}
+                            </a>
+                          </div>
+                        )}
+                        {idea.documentationUrl && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">Documentation:</span>{' '}
+                            <a href={idea.documentationUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              View
+                            </a>
+                          </div>
+                        )}
+                        {idea.videoUrl && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">Video:</span>{' '}
+                            <a href={idea.videoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              View
+                            </a>
+                          </div>
+                        )}
+                        {idea.zipFilePath && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">ZIP File:</span>{' '}
+                            <a href={idea.zipFilePath} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              Download
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="text-xs text-gray-500 mb-3">
                       Submitted: {new Date(idea.createdAt).toLocaleString()}
                     </div>

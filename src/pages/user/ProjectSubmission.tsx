@@ -113,13 +113,24 @@ const ProjectSubmission = () => {
     // Check if user owns the idea
     const isOwner = idea.user?.id === user.id || idea.author?.id === user.id;
     
-    // Check if idea is approved or published (for Hands-On hackathons)
-    const isApprovedOrPublished = idea.status === IdeaStatus.APPROVED || idea.status === IdeaStatus.PUBLISHED;
     const isHandsOnHackathon = idea.hackathonId && idea.hackathon?.hackathonType === HackathonType.HANDS_ON;
     
-    // For Hands-On hackathons, allow submission if approved/published
+    // For Hands-On hackathons, allow submission only in ENHANCEMENTS or IMPLEMENTATION phases
     if (isHandsOnHackathon) {
-      return isApprovedOrPublished && isOwner;
+      const canSubmitForHandsOn = idea.status === IdeaStatus.ENHANCEMENTS || idea.status === IdeaStatus.IMPLEMENTATION;
+      if (!canSubmitForHandsOn) {
+        return false;
+      }
+      
+      // Check if statusDeadline has passed
+      if (idea.statusDeadline) {
+        const now = new Date();
+        if (now > new Date(idea.statusDeadline)) {
+          return false;
+        }
+      }
+      
+      return isOwner;
     }
     
     // For regular ideas, only allow if approved

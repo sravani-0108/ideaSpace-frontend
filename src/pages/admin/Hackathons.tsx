@@ -192,18 +192,6 @@ const Hackathons = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Loading hackathons...</p>
             </div>
-          ) : hackathons.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow-md">
-              <p className="text-gray-500 text-lg">No hackathons found</p>
-              {isAdminOrJudge && (
-                <Link
-                  to="/admin/hackathons/create"
-                  className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Create Your First Hackathon
-                </Link>
-              )}
-            </div>
           ) : (() => {
             // Filter hackathons based on type
             const filteredHackathons = hackathons.filter((hackathon: Hackathon) => {
@@ -222,20 +210,25 @@ const Hackathons = () => {
               !nextHackathon || hackathon.id !== nextHackathon.id
             );
             
-            if (displayHackathons.length === 0) {
+            // Check if there are any hackathons to display (including nextHackathon)
+            const hasAnyHackathons = filteredHackathons.length > 0 || (shouldShowNextHackathon && nextHackathon);
+            
+            if (!hasAnyHackathons) {
               return (
                 <div className="text-center py-12 bg-white rounded-lg shadow-md">
                   <p className="text-gray-500 text-lg">
                     No {hackathonTypeFilter !== 'all' ? (hackathonTypeFilter === 'learning' ? 'Learning' : 'Hands-On') : ''} hackathons found
                   </p>
-                  {isAdminOrJudge && (
-                    <Link
-                      to="/admin/hackathons/create"
-                      className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      Create Your First Hackathon
-                    </Link>
-                  )}
+                </div>
+              );
+            }
+            
+            if (displayHackathons.length === 0 && !shouldShowNextHackathon) {
+              return (
+                <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                  <p className="text-gray-500 text-lg">
+                    No {hackathonTypeFilter !== 'all' ? (hackathonTypeFilter === 'learning' ? 'Learning' : 'Hands-On') : ''} hackathons found
+                  </p>
                 </div>
               );
             }
@@ -249,6 +242,9 @@ const Hackathons = () => {
                       [HackathonStatus.ACTIVE]: 1,
                       [HackathonStatus.PENDING]: 2,
                       [HackathonStatus.COMPLETED]: 3,
+                      [HackathonStatus.DRAFT]: 4,
+                      [HackathonStatus.OPEN]: 5,
+                      [HackathonStatus.CLOSED]: 6,
                     };
                     
                     const orderA = statusOrder[a.status] || 999;

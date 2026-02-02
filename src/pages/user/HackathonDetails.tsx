@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Calendar from '../../components/Calendar';
 import LeftSidebar from '../../components/LeftSidebar';
 import RightSidebar from '../../components/RightSidebar';
+import CreateTeamModal from '../../components/CreateTeamModal';
 
 const HackathonDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ const HackathonDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState('');
+  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -64,11 +66,9 @@ const HackathonDetails = () => {
     try {
       await registrationService.registerForHackathon(hackathon.id);
       setIsRegistered(true);
-      console.log('✅ Successfully registered for hackathon:', hackathon.id);
       await loadHackathonData(); // Reload to get teams/meetings
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to register for hackathon');
-      console.error('❌ Failed to register:', err);
     } finally {
       setIsRegistering(false);
     }
@@ -91,38 +91,85 @@ const HackathonDetails = () => {
     });
   };
 
-  const getStatusColor = (status: HackathonStatus) => {
-    switch (status) {
-      case HackathonStatus.PENDING:
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case HackathonStatus.ACTIVE:
-        return 'bg-green-100 text-green-800 border-green-300';
-      case HackathonStatus.COMPLETED:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+  const getStatusColor = (status: HackathonStatus, hackathonType?: HackathonType) => {
+    if (hackathonType === HackathonType.HANDS_ON) {
+      switch (status) {
+        case HackathonStatus.OPEN:
+          return 'bg-green-100 text-green-800 border-green-300';
+        case HackathonStatus.CLOSED:
+          return 'bg-gray-100 text-gray-800 border-gray-300';
+        case HackathonStatus.DRAFT:
+          return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        default:
+          return 'bg-gray-100 text-gray-800 border-gray-300';
+      }
+    } else {
+      switch (status) {
+        case HackathonStatus.PENDING:
+          return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        case HackathonStatus.ACTIVE:
+          return 'bg-green-100 text-green-800 border-green-300';
+        case HackathonStatus.COMPLETED:
+          return 'bg-gray-100 text-gray-800 border-gray-300';
+        default:
+          return 'bg-gray-100 text-gray-800 border-gray-300';
+      }
     }
   };
 
-  const getStatusDisplayName = (status: HackathonStatus) => {
-    switch (status) {
-      case HackathonStatus.PENDING:
-        return 'Upcoming';
-      case HackathonStatus.ACTIVE:
-        return 'Active';
-      case HackathonStatus.COMPLETED:
-        return 'Completed';
-      default:
-        return status;
+  const getStatusDisplayName = (status: HackathonStatus, hackathonType?: HackathonType) => {
+    if (hackathonType === HackathonType.HANDS_ON) {
+      switch (status) {
+        case HackathonStatus.OPEN:
+          return 'Open';
+        case HackathonStatus.CLOSED:
+          return 'Closed';
+        case HackathonStatus.DRAFT:
+          return 'Draft';
+        default:
+          return status;
+      }
+    } else {
+      switch (status) {
+        case HackathonStatus.PENDING:
+          return 'Upcoming';
+        case HackathonStatus.ACTIVE:
+          return 'Active';
+        case HackathonStatus.COMPLETED:
+          return 'Completed';
+        default:
+          return status;
+      }
     }
   };
 
   const canRegister = () => {
     if (!hackathon) return false;
-    if (hackathon.status === HackathonStatus.COMPLETED) return false;
-    if (hackathon.registrationDeadline) {
-      return new Date() < new Date(hackathon.registrationDeadline);
+    
+    const now = new Date();
+    
+    // For Hands-On hackathons, check status and registration deadline
+    if (hackathon.hackathonType === HackathonType.HANDS_ON) {
+      // Must be OPEN status
+      if (hackathon.status !== HackathonStatus.OPEN) {
+        return false;
+      }
+      // Check registration deadline
+      if (hackathon.registrationDeadline && now > new Date(hackathon.registrationDeadline)) {
+        return false; // Registration deadline has passed
+      }
+      return true;
     }
+    
+    // For Learning hackathons, check status and registration deadline
+    if (hackathon.status === HackathonStatus.COMPLETED) return false;
+    
+    if (hackathon.registrationDeadline) {
+      const registrationDeadline = new Date(hackathon.registrationDeadline);
+      return now < registrationDeadline;
+    }
+    
+    // If no deadline specified, allow registration
     return true;
   };
 
@@ -213,14 +260,27 @@ const HackathonDetails = () => {
                 )}
               </div>
             </div>
-            {user && hackathon.status !== HackathonStatus.COMPLETED && !isRegistered && (
+            {user && 
+             (hackathon.hackathonType === HackathonType.HANDS_ON 
+               ? hackathon.status === HackathonStatus.OPEN 
+               : hackathon.status !== HackathonStatus.COMPLETED) && 
+             !isRegistered && canRegister() && (
               <button
                 onClick={handleRegister}
-                disabled={isRegistering || !canRegister() || isRegistered}
+                disabled={isRegistering}
                 className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-sm hover:shadow-md"
               >
                 {isRegistering ? 'Registering...' : 'Register'}
               </button>
+            )}
+            {user && 
+             (hackathon.hackathonType === HackathonType.HANDS_ON 
+               ? hackathon.status !== HackathonStatus.OPEN 
+               : hackathon.status === HackathonStatus.COMPLETED || !canRegister()) && 
+             !isRegistered && (
+              <div className="px-6 py-2.5 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium shadow-sm cursor-not-allowed">
+                Registration Closed
+              </div>
             )}
           </div>
         </div>
@@ -229,33 +289,11 @@ const HackathonDetails = () => {
         {hackathon.hackathonType === HackathonType.HANDS_ON && isRegistered && (() => {
           // Check if registration is closed
           const now = new Date();
-          const registrationEnded = hackathon.registrationEndDate 
-            ? now > new Date(hackathon.registrationEndDate)
+          const registrationEnded = hackathon.registrationDeadline 
+            ? now > new Date(hackathon.registrationDeadline)
             : false;
           
-          if (registrationEnded) {
-            // Registration closed - show "View All Ideas"
-            return (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">View Idea</h2>
-                    <p className="text-sm text-gray-600">See all submitted ideas for this hackathon</p>
-                  </div>
-                  <Link
-                    to={`/hackathons/${hackathon.id}/ideas`}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm shadow-sm hover:shadow-md transition-all flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    View Idea
-                  </Link>
-                </div>
-              </div>
-            );
-          } else {
+          if (!registrationEnded) {
             // Registration open - show "Submit" button
             return (
               <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -277,6 +315,7 @@ const HackathonDetails = () => {
               </div>
             );
           }
+          return null;
         })()}
 
         {/* Purpose */}
@@ -343,7 +382,18 @@ const HackathonDetails = () => {
                 </div>
               </div>
             )}
-            {hackathon.registrationDeadline && (
+              {hackathon.hackathonType === HackathonType.HANDS_ON && hackathon.registrationDeadline && (
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Submission Deadline</h3>
+                  <p className="text-gray-900 font-medium">{formatDate(hackathon.registrationDeadline)}</p>
+                </div>
+              </div>
+            )}
+            {hackathon.hackathonType === HackathonType.LEARNING && hackathon.registrationDeadline && (
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -354,28 +404,7 @@ const HackathonDetails = () => {
                 </div>
               </div>
             )}
-            {hackathon.hackathonType === HackathonType.HANDS_ON && hackathon.registrationStartDate && (
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Registration Starts</h3>
-                  <p className="text-gray-900 font-medium">{formatDate(hackathon.registrationStartDate)}</p>
-                </div>
-              </div>
-            )}
-            {hackathon.hackathonType === HackathonType.HANDS_ON && hackathon.registrationEndDate && (
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Registration Ends</h3>
-                  <p className="text-gray-900 font-medium">{formatDate(hackathon.registrationEndDate)}</p>
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
 
@@ -387,33 +416,70 @@ const HackathonDetails = () => {
         )}
 
         {/* Teams Section - Only show if registered */}
-        {isRegistered && teams.length > 0 && (
+        {isRegistered && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Teams</h2>
-            <div className="space-y-4">
-              {teams.map((team) => (
-                <div key={team.id} className="p-4 border border-gray-200 rounded-md">
-                  <h3 className="font-medium text-gray-900 mb-2">{team.name}</h3>
-                  {team.description && (
-                    <p className="text-sm text-gray-600 mb-2">{team.description}</p>
-                  )}
-                  <button
-                    onClick={async () => {
-                      try {
-                        await teamService.addMemberToTeam(team.id, user!.id, hackathon.id);
-                        loadHackathonData();
-                      } catch (err: any) {
-                        setError(err.response?.data?.message || 'Failed to join team');
-                      }
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    Join Team →
-                  </button>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Teams</h2>
+              <button
+                onClick={() => setShowCreateTeamModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+              >
+                + Create Team
+              </button>
             </div>
+            
+            {teams.length > 0 ? (
+              <div className="space-y-4">
+                {teams.map((team) => (
+                  <div key={team.id} className="p-4 border border-gray-200 rounded-md">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900 mb-2">{team.name}</h3>
+                        {team.description && (
+                          <p className="text-sm text-gray-600 mb-2">{team.description}</p>
+                        )}
+                        {team.creator && (
+                          <p className="text-xs text-gray-500">
+                            Created by: {team.creator.firstName || team.creator.email}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await teamService.addMemberToTeam(team.id, user!.id, hackathon.id);
+                            loadHackathonData();
+                            setError('');
+                          } catch (err: any) {
+                            setError(err.response?.data?.message || 'Failed to join team');
+                          }
+                        }}
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                      >
+                        Join Team
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No teams created yet. Be the first to create a team!</p>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Create Team Modal */}
+        {showCreateTeamModal && (
+          <CreateTeamModal
+            hackathonId={hackathon.id}
+            onClose={() => setShowCreateTeamModal(false)}
+            onSuccess={() => {
+              setShowCreateTeamModal(false);
+              loadHackathonData();
+            }}
+          />
         )}
 
         {/* Meetings Section - Only show if registered */}

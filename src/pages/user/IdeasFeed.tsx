@@ -174,10 +174,8 @@ const IdeasFeed = () => {
       await registrationService.registerForHackathon(hackathonId);
       // Update registration status immediately to disable button
       setRegistrationStatuses(prev => ({ ...prev, [hackathonId]: true }));
-      console.log('✅ Successfully registered for hackathon:', hackathonId);
     } catch (err: any) {
       setHackathonsError(err.response?.data?.message || 'Failed to register for hackathon');
-      console.error('❌ Failed to register:', err);
     } finally {
       setRegisteringIds(prev => {
         const newSet = new Set(prev);
@@ -225,7 +223,12 @@ const IdeasFeed = () => {
     }
     // If filter is null, don't filter by type (show all)
     
-    // Filter by status
+    // For Hands-On hackathons, show OPEN and CLOSED status (hide DRAFT)
+    if (hackathon.hackathonType === HackathonType.HANDS_ON) {
+      return hackathon.status === HackathonStatus.OPEN || hackathon.status === HackathonStatus.CLOSED;
+    }
+    
+    // Filter by status tab (only for Learning hackathons)
     if (hackathonTab === 'active') return hackathon.status === HackathonStatus.ACTIVE;
     if (hackathonTab === 'upcoming') return hackathon.status === HackathonStatus.PENDING;
     if (hackathonTab === 'completed') return hackathon.status === HackathonStatus.COMPLETED;
@@ -251,13 +254,15 @@ const IdeasFeed = () => {
   const canRegister = (hackathon: Hackathon) => {
     const now = new Date();
     
-    // For Hands-On hackathons, check registration start and end dates
+    // For Hands-On hackathons, check status and registration deadline
     if (hackathon.hackathonType === HackathonType.HANDS_ON) {
-      if (hackathon.registrationStartDate && now < new Date(hackathon.registrationStartDate)) {
-        return false; // Registration hasn't started yet
+      // Must be OPEN status
+      if (hackathon.status !== HackathonStatus.OPEN) {
+        return false;
       }
-      if (hackathon.registrationEndDate && now > new Date(hackathon.registrationEndDate)) {
-        return false; // Registration has ended
+      // Check registration deadline
+      if (hackathon.registrationDeadline && now > new Date(hackathon.registrationDeadline)) {
+        return false; // Registration deadline has passed
       }
       return true;
     }
@@ -375,68 +380,70 @@ const IdeasFeed = () => {
             </div>
           </div>
 
-          {/* Hackathon Sub-tabs */}
-          <div className="mb-6">
-            <nav className="flex space-x-4">
-              <button
-                onClick={() => {
-                  setHackathonTab('active');
-                }}
-                className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
-                  hackathonTab === 'active'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-500 hover:text-gray-700 bg-gray-100'
-                }`}
-              >
-                <span>Active</span>
-                <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${
-                  hackathonTab === 'active'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {activeCount}
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  setHackathonTab('upcoming');
-                }}
-                className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
-                  hackathonTab === 'upcoming'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-500 hover:text-gray-700 bg-gray-100'
-                }`}
-              >
-                <span>Upcoming</span>
-                <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${
-                  hackathonTab === 'upcoming'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {upcomingCount}
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  setHackathonTab('completed');
-                }}
-                className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
-                  hackathonTab === 'completed'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-500 hover:text-gray-700 bg-gray-100'
-                }`}
-              >
-                <span>Completed</span>
-                <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${
-                  hackathonTab === 'completed'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {completedCount}
-                </span>
-              </button>
-            </nav>
-          </div>
+          {/* Hackathon Sub-tabs - Only show for Learning hackathons */}
+          {hackathonTypeFilter !== 'handsOn' && (
+            <div className="mb-6">
+              <nav className="flex space-x-4">
+                <button
+                  onClick={() => {
+                    setHackathonTab('active');
+                  }}
+                  className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
+                    hackathonTab === 'active'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-500 hover:text-gray-700 bg-gray-100'
+                  }`}
+                >
+                  <span>Active</span>
+                  <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${
+                    hackathonTab === 'active'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {activeCount}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setHackathonTab('upcoming');
+                  }}
+                  className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
+                    hackathonTab === 'upcoming'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-500 hover:text-gray-700 bg-gray-100'
+                  }`}
+                >
+                  <span>Upcoming</span>
+                  <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${
+                    hackathonTab === 'upcoming'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {upcomingCount}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setHackathonTab('completed');
+                  }}
+                  className={`px-4 py-2 font-medium text-sm transition-all rounded-full flex items-center space-x-2 ${
+                    hackathonTab === 'completed'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-500 hover:text-gray-700 bg-gray-100'
+                  }`}
+                >
+                  <span>Completed</span>
+                  <span className={`w-5 h-5 flex items-center justify-center text-[10px] rounded-full ${
+                    hackathonTab === 'completed'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {completedCount}
+                  </span>
+                </button>
+              </nav>
+            </div>
+          )}
 
           {hackathonsError && (
             <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4">
@@ -458,7 +465,9 @@ const IdeasFeed = () => {
           ) : filteredHackathons.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-md">
               <p className="text-gray-500 text-lg">
-                No {hackathonTab} {hackathonTypeFilter ? (hackathonTypeFilter === 'learning' ? 'Learning' : 'Hands-On') : ''} hackathons found
+                {hackathonTypeFilter === 'handsOn' 
+                  ? 'No Hands-On hackathons found' 
+                  : `No ${hackathonTab} ${hackathonTypeFilter ? (hackathonTypeFilter === 'learning' ? 'Learning' : '') : ''} hackathons found`}
               </p>
             </div>
           ) : (
@@ -544,26 +553,14 @@ const IdeasFeed = () => {
                               </div>
                             )}
                             
-                            {/* Registration Period (for Hands-On Hackathons) */}
-                            {hackathon.hackathonType === HackathonType.HANDS_ON && (
-                              <>
-                                {hackathon.registrationStartDate && (
-                                  <div className="flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    <span>Registration starts: {formatDateShort(hackathon.registrationStartDate)}</span>
-                                  </div>
-                                )}
-                                {hackathon.registrationEndDate && (
-                                  <div className="flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                    </svg>
-                                    <span>Registration ends: {formatDateShort(hackathon.registrationEndDate)}</span>
-                                  </div>
-                                )}
-                              </>
+                            {/* Registration Deadline (for Hands-On Hackathons) */}
+                            {hackathon.hackathonType === HackathonType.HANDS_ON && hackathon.registrationDeadline && (
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                                <span>Submission deadline: {formatDateShort(hackathon.registrationDeadline)}</span>
+                              </div>
                             )}
                           </div>
                         </div>

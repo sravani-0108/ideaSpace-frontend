@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
-import { HackathonType } from '../../types';
+import { HackathonType, HackathonStatus } from '../../types';
 import AdminSidebar from '../../components/AdminSidebar';
 
 const CreateHackathon = () => {
@@ -16,6 +16,7 @@ const CreateHackathon = () => {
     hackathonType: HackathonType.LEARNING,
     registrationStartDate: '',
     registrationEndDate: '',
+    submissionDeadline: '',
     location: '',
     onlineLink: '',
   });
@@ -58,16 +59,10 @@ const CreateHackathon = () => {
 
     // Validate Hands-On hackathon fields
     if (formData.hackathonType === HackathonType.HANDS_ON) {
-      if (!formData.registrationStartDate) {
-        newErrors.registrationStartDate = 'Registration start date is required for Hands-On hackathons';
-      }
-      if (!formData.registrationEndDate) {
-        newErrors.registrationEndDate = 'Registration end date is required for Hands-On hackathons';
-      } else if (formData.registrationStartDate && new Date(formData.registrationEndDate) < new Date(formData.registrationStartDate)) {
-        newErrors.registrationEndDate = 'Registration end date must be after start date';
-      }
-      if (formData.registrationEndDate && new Date(formData.registrationEndDate) > new Date(formData.startDate)) {
-        newErrors.registrationEndDate = 'Registration end date must be before hackathon start date';
+      if (!formData.submissionDeadline) {
+        newErrors.submissionDeadline = 'Submission deadline is required for Hands-On hackathons';
+      } else if (formData.startDate && new Date(formData.submissionDeadline) > new Date(formData.startDate)) {
+        newErrors.submissionDeadline = 'Submission deadline must be before hackathon start date';
       }
     }
 
@@ -91,12 +86,13 @@ const CreateHackathon = () => {
         description: formData.description.trim(),
         startDate: formData.startDate,
         endDate: formData.endDate,
-        registrationDeadline: formData.registrationDeadline || undefined,
+        registrationDeadline: formData.hackathonType === HackathonType.LEARNING 
+          ? (formData.registrationDeadline || undefined) 
+          : (formData.hackathonType === HackathonType.HANDS_ON ? formData.submissionDeadline : undefined),
         hackathonType: formData.hackathonType,
-        registrationStartDate: formData.hackathonType === HackathonType.HANDS_ON ? formData.registrationStartDate : undefined,
-        registrationEndDate: formData.hackathonType === HackathonType.HANDS_ON ? formData.registrationEndDate : undefined,
         location: formData.location.trim(),
         onlineLink: formData.onlineLink.trim() || undefined,
+        status: formData.hackathonType === HackathonType.HANDS_ON ? HackathonStatus.DRAFT : undefined, // Set DRAFT for Hands-On hackathons
       });
       setMessage('Hackathon created successfully!');
       setTimeout(() => {
@@ -186,8 +182,8 @@ const CreateHackathon = () => {
                   onChange={(e) => setFormData({ ...formData, hackathonType: e.target.value as HackathonType })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value={HackathonType.LEARNING}>Learning Hackathon</option>
-                  <option value={HackathonType.HANDS_ON}>Hands-On Hackathon</option>
+                  <option value={HackathonType.LEARNING}>Learning</option>
+                  <option value={HackathonType.HANDS_ON}>Hands-On</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
                   Hands-On hackathons require idea submission and project implementation
@@ -195,36 +191,22 @@ const CreateHackathon = () => {
               </div>
 
               {formData.hackathonType === HackathonType.HANDS_ON && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div>
-                    <label htmlFor="registrationStartDate" className="block text-sm font-medium text-gray-700 mb-2">
-                      Registration Start Date & Time *
+                    <label htmlFor="submissionDeadline" className="block text-sm font-medium text-gray-700 mb-2">
+                      Submission Deadline *
                     </label>
                     <input
                       type="datetime-local"
-                      id="registrationStartDate"
-                      value={formData.registrationStartDate}
-                      onChange={(e) => setFormData({ ...formData, registrationStartDate: e.target.value })}
+                      id="submissionDeadline"
+                      value={formData.submissionDeadline}
+                      onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    {errors.registrationStartDate && <p className="mt-1 text-sm text-red-600">{errors.registrationStartDate}</p>}
+                    {errors.submissionDeadline && <p className="mt-1 text-sm text-red-600">{errors.submissionDeadline}</p>}
                   </div>
-
-                  <div>
-                    <label htmlFor="registrationEndDate" className="block text-sm font-medium text-gray-700 mb-2">
-                      Registration End Date & Time *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      id="registrationEndDate"
-                      value={formData.registrationEndDate}
-                      onChange={(e) => setFormData({ ...formData, registrationEndDate: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {errors.registrationEndDate && <p className="mt-1 text-sm text-red-600">{errors.registrationEndDate}</p>}
-                  </div>
-                  <p className="col-span-2 text-xs text-gray-600">
-                    Users can submit ideas during this registration period. Ideas will be visible only to Admin/Judge until registration ends.
+                  <p className="mt-2 text-xs text-gray-600">
+                    Users can submit ideas before this deadline. Ideas will be visible only to Admin/Judge until the deadline.
                   </p>
                 </div>
               )}
@@ -258,19 +240,21 @@ const CreateHackathon = () => {
                   {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>}
                 </div>
 
-                <div>
-                  <label htmlFor="registrationDeadline" className="block text-sm font-medium text-gray-700 mb-2">
-                    Register By
-                  </label>
-                  <input
-                    type="datetime-local"
-                    id="registrationDeadline"
-                    value={formData.registrationDeadline}
-                    onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.registrationDeadline && <p className="mt-1 text-sm text-red-600">{errors.registrationDeadline}</p>}
-                </div>
+                {formData.hackathonType === HackathonType.LEARNING && (
+                  <div>
+                    <label htmlFor="registrationDeadline" className="block text-sm font-medium text-gray-700 mb-2">
+                      Register By
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="registrationDeadline"
+                      value={formData.registrationDeadline}
+                      onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {errors.registrationDeadline && <p className="mt-1 text-sm text-red-600">{errors.registrationDeadline}</p>}
+                  </div>
+                )}
               </div>
 
               <div>

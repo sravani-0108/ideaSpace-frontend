@@ -8,7 +8,13 @@ export enum IdeaStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   PUBLISHED = 'PUBLISHED',
-  REJECTED = 'REJECTED'
+  REJECTED = 'REJECTED',
+  // Hands-On Hackathon specific statuses
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  PITCHING = 'PITCHING',
+  ENHANCEMENTS = 'ENHANCEMENTS',
+  IMPLEMENTATION = 'IMPLEMENTATION',
+  COMPLETED = 'COMPLETED'
 }
 
 export enum NotificationType {
@@ -21,9 +27,12 @@ export enum NotificationType {
 }
 
 export enum HackathonStatus {
+  DRAFT = 'DRAFT',
   PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
-  COMPLETED = 'COMPLETED'
+  COMPLETED = 'COMPLETED',
+  OPEN = 'OPEN',      // For Hands-On hackathons
+  CLOSED = 'CLOSED'   // For Hands-On hackathons
 }
 
 export enum HackathonType {
@@ -49,8 +58,6 @@ export interface Hackathon {
   startDate: string;
   endDate: string;
   registrationDeadline?: string;
-  registrationStartDate?: string;
-  registrationEndDate?: string;
   hackathonType: HackathonType;
   location: string;
   onlineLink?: string;
@@ -124,6 +131,11 @@ export interface Idea {
   hackathon?: Hackathon;
   rejectionReason?: string;
   projectDeadline?: string;
+  statusDeadline?: string;
+  gitRepositoryUrl?: string;
+  documentationUrl?: string;
+  videoUrl?: string;
+  zipFilePath?: string;
   author?: {
     id: string;
     email: string;

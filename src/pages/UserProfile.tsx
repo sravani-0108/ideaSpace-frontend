@@ -56,7 +56,7 @@ const UserProfile = () => {
       const data = await ideaService.getIdeasByUserId(userId!);
       setPosts(data);
     } catch (err: any) {
-      console.error('Failed to load posts:', err);
+      // Failed to load posts
       setPosts([]);
     } finally {
       setIsLoadingPosts(false);
@@ -69,7 +69,7 @@ const UserProfile = () => {
       const data = await commentService.getCommentsByUserId(userId!);
       setComments(data);
     } catch (err: any) {
-      console.error('Failed to load comments:', err);
+      // Failed to load comments
       setComments([]);
     } finally {
       setIsLoadingComments(false);

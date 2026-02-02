@@ -40,7 +40,7 @@ const CommentItem = ({ comment, ideaId, onReply, level = 0 }: CommentItemProps) 
       setReplyContent('');
       setIsReplying(false);
     } catch (error) {
-      console.error('Failed to post reply:', error);
+      // Failed to post reply
     } finally {
       setIsSubmitting(false);
     }

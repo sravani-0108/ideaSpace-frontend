@@ -68,11 +68,16 @@ const MyIdeas = () => {
   };
 
   const getStatusBadge = (status: IdeaStatus) => {
-    const styles = {
+    const styles: Record<IdeaStatus, string> = {
       [IdeaStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
       [IdeaStatus.APPROVED]: 'bg-blue-100 text-blue-800',
       [IdeaStatus.PUBLISHED]: 'bg-green-100 text-green-800',
       [IdeaStatus.REJECTED]: 'bg-red-100 text-red-800',
+      [IdeaStatus.UNDER_REVIEW]: 'bg-purple-100 text-purple-800',
+      [IdeaStatus.PITCHING]: 'bg-blue-100 text-blue-800',
+      [IdeaStatus.ENHANCEMENTS]: 'bg-orange-100 text-orange-800',
+      [IdeaStatus.IMPLEMENTATION]: 'bg-indigo-100 text-indigo-800',
+      [IdeaStatus.COMPLETED]: 'bg-green-100 text-green-800',
     };
     return styles[status] || 'bg-gray-100 text-gray-800';
   };

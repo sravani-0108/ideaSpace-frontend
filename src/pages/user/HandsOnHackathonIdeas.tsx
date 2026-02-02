@@ -32,7 +32,6 @@ const HandsOnHackathonIdeas = () => {
         const data = await ideaService.getHandsOnHackathonIdeas(hackathonId);
         setIdeas(data);
       } catch (error: any) {
-        console.error('Failed to reload ideas:', error);
       }
     }
   };
@@ -93,6 +92,11 @@ const HandsOnHackathonIdeas = () => {
       [IdeaStatus.PENDING]: 2,
       [IdeaStatus.REJECTED]: 3,
       [IdeaStatus.PUBLISHED]: 0, // Published comes before Approved
+      [IdeaStatus.UNDER_REVIEW]: 4,
+      [IdeaStatus.PITCHING]: 5,
+      [IdeaStatus.ENHANCEMENTS]: 6,
+      [IdeaStatus.IMPLEMENTATION]: 7,
+      [IdeaStatus.COMPLETED]: 8,
     };
     
     const orderA = statusOrder[a.status] ?? 999;
@@ -109,19 +113,21 @@ const HandsOnHackathonIdeas = () => {
   const canSubmitIdea = () => {
     if (!hackathon || hackathon.hackathonType !== HackathonType.HANDS_ON) return false;
     const now = new Date();
-    const regStart = hackathon.registrationStartDate ? new Date(hackathon.registrationStartDate) : null;
-    const regEnd = hackathon.registrationEndDate ? new Date(hackathon.registrationEndDate) : null;
-    if (regStart && now < regStart) return false;
-    if (regEnd && now > regEnd) return false;
+    if (hackathon.registrationDeadline && now > new Date(hackathon.registrationDeadline)) return false;
     return true;
   };
 
   const getStatusBadge = (status: IdeaStatus) => {
-    const badges = {
+    const badges: Record<IdeaStatus, string> = {
       [IdeaStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
       [IdeaStatus.APPROVED]: 'bg-green-100 text-green-800',
       [IdeaStatus.REJECTED]: 'bg-red-100 text-red-800',
       [IdeaStatus.PUBLISHED]: 'bg-blue-100 text-blue-800',
+      [IdeaStatus.UNDER_REVIEW]: 'bg-purple-100 text-purple-800',
+      [IdeaStatus.PITCHING]: 'bg-indigo-100 text-indigo-800',
+      [IdeaStatus.ENHANCEMENTS]: 'bg-orange-100 text-orange-800',
+      [IdeaStatus.IMPLEMENTATION]: 'bg-indigo-100 text-indigo-800',
+      [IdeaStatus.COMPLETED]: 'bg-green-100 text-green-800',
     };
     return badges[status] || 'bg-gray-100 text-gray-800';
   };
@@ -208,69 +214,69 @@ const HandsOnHackathonIdeas = () => {
         {/* Ideas Tab Content */}
         {activeTab === 'ideas' && (
           <>
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading ideas...</p>
-              </div>
-            ) : sortedIdeas.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-                <p className="text-gray-500 text-lg">No ideas found</p>
-                {canSubmitIdea() && (
-                  <Link
-                    to={`/hackathons/${hackathonId}/submit-idea`}
-                    className="mt-4 inline-block text-blue-600 hover:text-blue-700"
-                  >
-                    Be the first to submit an idea!
-                  </Link>
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading ideas...</p>
+          </div>
+        ) : sortedIdeas.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+            <p className="text-gray-500 text-lg">No ideas found</p>
+            {canSubmitIdea() && (
+              <Link
+                to={`/hackathons/${hackathonId}/submit-idea`}
+                className="mt-4 inline-block text-blue-600 hover:text-blue-700"
+              >
+                Be the first to submit an idea!
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sortedIdeas.map((idea) => {
+              const isOwner = user ? (user.id === idea.user?.id || user.id === idea.author?.id) : false;
+              const canEdit = isOwner && canSubmitIdea(); // Can edit if owner and registration is still open
+              
+              return (
+                <div key={idea.id} className="relative">
+                  <FeedPost 
+                    idea={idea} 
+                    onUpdate={handleIdeaUpdate}
+                    hideAuthor={isOwner} // Always hide author for owner's ideas
+                    showEditButton={isOwner && canEdit} // Show edit button only if can edit
+                    showRegistrationEndDate={isOwner && canEdit && !!hackathon?.registrationDeadline}
+                    registrationEndDate={hackathon?.registrationDeadline || undefined}
+                    showContent={isOwner} // Show title/description for owner's ideas
+                  />
+                  {/* Status Badge - positioned to the left of the date */}
+                  <div className="absolute top-4 right-20 z-10">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap shadow-sm ${getStatusBadge(idea.status)}`}>
+                      {idea.status}
+                    </span>
+                  </div>
+
+                {/* Rejection Reason - shown below FeedPost */}
+                {idea.rejectionReason && idea.status === IdeaStatus.REJECTED && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm font-medium text-red-800">Rejection Reason:</p>
+                    <p className="text-sm text-red-700">{idea.rejectionReason}</p>
+                  </div>
                 )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {sortedIdeas.map((idea) => {
-                  const isOwner = user ? (user.id === idea.user?.id || user.id === idea.author?.id) : false;
-                  const canEdit = isOwner && canSubmitIdea(); // Can edit if owner and registration is still open
-                  
-                  return (
-                    <div key={idea.id} className="relative">
-                      <FeedPost 
-                        idea={idea} 
-                        onUpdate={handleIdeaUpdate}
-                        hideAuthor={isOwner} // Always hide author for owner's ideas
-                        showEditButton={isOwner && canEdit} // Show edit button only if can edit
-                        showRegistrationEndDate={isOwner && canEdit && !!hackathon?.registrationEndDate}
-                        registrationEndDate={hackathon?.registrationEndDate || undefined}
-                        showContent={isOwner} // Show title/description for owner's ideas
-                      />
-                      {/* Status Badge - positioned to the left of the date */}
-                      <div className="absolute top-4 right-20 z-10">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap shadow-sm ${getStatusBadge(idea.status)}`}>
-                          {idea.status}
-                        </span>
-                      </div>
 
-                      {/* Rejection Reason - shown below FeedPost */}
-                      {idea.rejectionReason && idea.status === IdeaStatus.REJECTED && (
-                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                          <p className="text-sm font-medium text-red-800">Rejection Reason:</p>
-                          <p className="text-sm text-red-700">{idea.rejectionReason}</p>
-                        </div>
-                      )}
-
-                      {/* Project Deadline - only show to the idea owner */}
-                      {idea.projectDeadline && 
-                       user && (user.id === idea.user?.id || user.id === idea.author?.id) && (
-                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                          <p className="text-sm font-medium text-blue-800">Project Deadline:</p>
-                          <p className="text-sm text-blue-700">
-                            {new Date(idea.projectDeadline).toLocaleString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                {/* Project Deadline - only show to the idea owner */}
+                {idea.projectDeadline && 
+                 user && (user.id === idea.user?.id || user.id === idea.author?.id) && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm font-medium text-blue-800">Project Deadline:</p>
+                    <p className="text-sm text-blue-700">
+                      {new Date(idea.projectDeadline).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                </div>
+              );
+            })}
+          </div>
             )}
           </>
         )}

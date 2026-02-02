@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ideaService } from '../services/idea.service';
 import { commentService } from '../services/comment.service';
 import { likeService } from '../services/like.service';
+import { adminService } from '../services/admin.service';
 import { Idea, Comment, IdeaStatus, HackathonType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -29,6 +30,11 @@ const IdeaDetails = () => {
   const [isTogglingLike, setIsTogglingLike] = useState(false);
   const [error, setError] = useState('');
   const [hasProject, setHasProject] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<IdeaStatus>(IdeaStatus.PENDING);
+  const [statusDeadline, setStatusDeadline] = useState('');
+  const [showDeadlineInput, setShowDeadlineInput] = useState(false);
 
   // Determine where to navigate back to
   const getBackPath = () => {
@@ -66,6 +72,26 @@ const IdeaDetails = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
+  useEffect(() => {
+    if (idea) {
+      setSelectedStatus(idea.status);
+      if (idea.statusDeadline) {
+        // Convert ISO date to datetime-local format
+        const date = new Date(idea.statusDeadline);
+        const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+        setStatusDeadline(localDate.toISOString().slice(0, 16));
+      } else {
+        setStatusDeadline('');
+      }
+      // Show deadline input for statuses that require it
+      setShowDeadlineInput(
+        idea.status === IdeaStatus.PITCHING ||
+        idea.status === IdeaStatus.ENHANCEMENTS ||
+        idea.status === IdeaStatus.IMPLEMENTATION
+      );
+    }
+  }, [idea]);
+
   const checkProject = async () => {
     if (!id || !user) return;
     try {
@@ -79,29 +105,89 @@ const IdeaDetails = () => {
   const loadIdea = async () => {
     try {
       setIsLoading(true);
+      setError('');
       const data = await ideaService.getIdeaById(id!) as IdeaWithLikes;
       // Check if current user has liked this idea
       const isLiked = user && data.likes?.some((like) => like.userId === user.id);
       setIdea({ ...data, isLiked: !!isLiked });
-      
-      // Debug logging
-      console.log('Idea loaded:', {
-        id: data.id,
-        status: data.status,
-        hackathonId: data.hackathonId,
-        hasHackathon: !!data.hackathon,
-        hackathonType: data.hackathon?.hackathonType,
-        userId: data.user?.id || data.author?.id,
-        currentUserId: user?.id,
-        isOwner: user && (user.id === data.user?.id || user.id === data.author?.id),
-        projectDeadline: data.projectDeadline
-      });
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Failed to load idea');
+      // If admin and idea not found, it might be a visibility issue - try to show error with more context
+      if (user && (user.role === 'ADMIN' || user.role === 'JUDGE')) {
+        setError('Idea not found or not accessible. ' + (err.response?.data?.message || err.message || ''));
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleStatusChange = async () => {
+    if (!idea) return;
+    
+    // Validate that a status is selected
+    if (!selectedStatus) {
+      setStatusMessage('Please select a status');
+      setTimeout(() => setStatusMessage(''), 5000);
+      return;
+    }
+    
+    // Validate deadline for statuses that require it
+    if ((selectedStatus === IdeaStatus.PITCHING || 
+         selectedStatus === IdeaStatus.ENHANCEMENTS || 
+         selectedStatus === IdeaStatus.IMPLEMENTATION) && !statusDeadline) {
+      setStatusMessage('Please select a deadline date for this status');
+      setTimeout(() => setStatusMessage(''), 5000);
+      return;
+    }
+    
+    // Clear deadline for REJECTED, COMPLETED, and UNDER_REVIEW statuses
+    const finalDeadline = (selectedStatus === IdeaStatus.REJECTED || 
+                          selectedStatus === IdeaStatus.COMPLETED || 
+                          selectedStatus === IdeaStatus.UNDER_REVIEW)
+      ? undefined
+      : statusDeadline || undefined;
+
+    setIsUpdatingStatus(true);
+    setStatusMessage('');
+    try {
+      await adminService.updateIdeaStatus(idea.id, selectedStatus, {
+        statusDeadline: finalDeadline,
+      });
+      // Reload idea to get updated status
+      await loadIdea();
+      setStatusMessage('Idea status updated successfully');
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (err: any) {
+      setStatusMessage(err.response?.data?.message || 'Failed to update idea status');
+      setTimeout(() => setStatusMessage(''), 5000);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleStatusSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value as IdeaStatus;
+    if (!newStatus) {
+      // If empty option selected, reset to current idea status
+      setSelectedStatus(idea?.status || IdeaStatus.PENDING);
+      setShowDeadlineInput(false);
+      setStatusDeadline('');
+      return;
+    }
+    setSelectedStatus(newStatus);
+    // Show deadline input for statuses that require it
+    setShowDeadlineInput(
+      newStatus === IdeaStatus.PITCHING ||
+      newStatus === IdeaStatus.ENHANCEMENTS ||
+      newStatus === IdeaStatus.IMPLEMENTATION
+    );
+    // Clear deadline if status doesn't require it
+    if (!showDeadlineInput && (newStatus === IdeaStatus.UNDER_REVIEW || newStatus === IdeaStatus.COMPLETED)) {
+      setStatusDeadline('');
+    }
+  };
+
+  const isAdmin = user && (user.role === 'ADMIN' || user.role === 'JUDGE');
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -226,22 +312,156 @@ const IdeaDetails = () => {
           </div>
         )}
 
+        {statusMessage && (
+          <div className={`mb-4 rounded-md p-3 text-sm ${
+            statusMessage.includes('successfully')
+              ? 'bg-green-50 text-green-800'
+              : 'bg-red-50 text-red-800'
+          }`}>
+            {statusMessage}
+          </div>
+        )}
+
         <div className="bg-white shadow-md rounded-lg p-8 mb-6">
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-3xl font-bold text-gray-900">{idea.title}</h1>
-            {(idea.status === IdeaStatus.APPROVED || idea.status === IdeaStatus.PUBLISHED) && 
-             idea.hackathonId && 
+            {/* Status Dropdown for Admin */}
+            {isAdmin && idea.hackathonId && idea.hackathon?.hackathonType === HackathonType.HANDS_ON && (
+              <div className="flex flex-col items-end space-y-2">
+                <div className="flex items-center space-x-2">
+                  <label htmlFor="idea-status-select" className="text-sm font-medium text-gray-700">
+                    Status:
+                  </label>
+                  <select
+                    id="idea-status-select"
+                    value={selectedStatus || ''}
+                    onChange={handleStatusSelectChange}
+                    disabled={isUpdatingStatus}
+                    className="px-3 py-2 border border-gray-300 rounded-md bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select Status</option>
+                    <option value={IdeaStatus.UNDER_REVIEW}>Under Review</option>
+                    <option value={IdeaStatus.PITCHING}>Pitching</option>
+                    <option value={IdeaStatus.ENHANCEMENTS}>Enhancements</option>
+                    <option value={IdeaStatus.IMPLEMENTATION}>Implementation</option>
+                    <option value={IdeaStatus.COMPLETED}>Completed</option>
+                    <option value={IdeaStatus.REJECTED}>Rejected</option>
+                  </select>
+                </div>
+                {showDeadlineInput && (
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="status-deadline" className="text-sm font-medium text-gray-700">
+                      Deadline:
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="status-deadline"
+                      value={statusDeadline}
+                      onChange={(e) => setStatusDeadline(e.target.value)}
+                      disabled={isUpdatingStatus}
+                      className="px-3 py-2 border border-gray-300 rounded-md bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={handleStatusChange}
+                  disabled={isUpdatingStatus || !selectedStatus || (showDeadlineInput && !statusDeadline)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  {isUpdatingStatus ? 'Updating...' : 'Update Status'}
+                </button>
+                {isUpdatingStatus && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                )}
+              </div>
+            )}
+            {/* Show submit/update project button for Hands-On hackathons based on status and deadline */}
+            {idea.hackathonId && 
              idea.hackathon?.hackathonType === HackathonType.HANDS_ON &&
-             user && (user.id === idea.user?.id || user.id === idea.author?.id) && (
-              <Link
-                to={`/ideas/${idea.id}/submit-project`}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm"
-              >
-                {hasProject ? 'Update Project' : 'Submit Project'}
-              </Link>
+             user && (user.id === idea.user?.id || user.id === idea.author?.id) && 
+             (idea.status === IdeaStatus.ENHANCEMENTS || idea.status === IdeaStatus.IMPLEMENTATION) && (
+              (() => {
+                const canSubmit = idea.statusDeadline 
+                  ? new Date() <= new Date(idea.statusDeadline)
+                  : true;
+                
+                return canSubmit ? (
+                  <Link
+                    to={`/ideas/${idea.id}/submit-project`}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm"
+                  >
+                    {hasProject ? 'Update Project' : 'Submit Project'}
+                  </Link>
+                ) : (
+                  <span className="px-4 py-2 bg-gray-300 text-gray-600 rounded-md font-medium text-sm cursor-not-allowed">
+                    Deadline Passed
+                  </span>
+                );
+              })()
             )}
           </div>
           <p className="text-gray-600 mb-6 whitespace-pre-wrap">{idea.description}</p>
+          
+          {/* Show file attachments if available */}
+          {(idea.gitRepositoryUrl || idea.documentationUrl || idea.videoUrl || idea.zipFilePath) && (
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Attachments</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {idea.gitRepositoryUrl && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 mb-1">Git Repository</p>
+                    <a
+                      href={idea.gitRepositoryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-700 break-all"
+                    >
+                      {idea.gitRepositoryUrl}
+                    </a>
+                  </div>
+                )}
+                {idea.documentationUrl && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 mb-1">Documentation</p>
+                    <a
+                      href={idea.documentationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      View Documentation
+                    </a>
+                  </div>
+                )}
+                {idea.videoUrl && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 mb-1">Video</p>
+                    <a
+                      href={idea.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      View Video
+                    </a>
+                  </div>
+                )}
+                {idea.zipFilePath && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 mb-1">ZIP File</p>
+                    <a
+                      href={idea.zipFilePath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      Download ZIP
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           
           {/* Approval Message for Hands-On Hackathons */}
             {(idea.status === IdeaStatus.APPROVED || idea.status === IdeaStatus.PUBLISHED) && 

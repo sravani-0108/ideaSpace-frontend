@@ -5,6 +5,13 @@ export interface CreateIdeaData {
   title: string;
   description: string;
   hackathonId?: string;
+  gitRepositoryUrl?: string;
+  documentationUrl?: string;
+  videoUrl?: string;
+  zipFilePath?: string;
+  documentationFile?: File;
+  videoFile?: File;
+  zipFile?: File;
 }
 
 interface ApiResponse<T> {
@@ -59,11 +66,52 @@ export const ideaService = {
   },
 
   createIdea: async (data: CreateIdeaData): Promise<Idea> => {
-    const response = await api.post<ApiResponse<Idea>>('/ideas', data);
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message || 'Failed to create idea');
+    // Check if we have files to upload - use FormData if files exist
+    const hasFiles = data.documentationFile || data.videoFile || data.zipFile;
+    
+    if (hasFiles) {
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('description', data.description);
+      if (data.hackathonId) {
+        formData.append('hackathonId', data.hackathonId);
+      }
+      if (data.gitRepositoryUrl) {
+        formData.append('gitRepositoryUrl', data.gitRepositoryUrl);
+      }
+      if (data.documentationFile) {
+        formData.append('documentation', data.documentationFile);
+      } else if (data.documentationUrl) {
+        formData.append('documentationUrl', data.documentationUrl);
+      }
+      if (data.videoFile) {
+        formData.append('video', data.videoFile);
+      } else if (data.videoUrl) {
+        formData.append('videoUrl', data.videoUrl);
+      }
+      if (data.zipFile) {
+        formData.append('zipFile', data.zipFile);
+      } else if (data.zipFilePath) {
+        formData.append('zipFilePath', data.zipFilePath);
+      }
+      
+      const response = await api.post<ApiResponse<Idea>>('/ideas', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.message || 'Failed to create idea');
+      }
+      return response.data.data;
+    } else {
+      // No files - use regular JSON
+      const response = await api.post<ApiResponse<Idea>>('/ideas', data);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.message || 'Failed to create idea');
+      }
+      return response.data.data;
     }
-    return response.data.data;
   },
 
   getIdeasByUserId: async (userId: string, page: number = 1, limit: number = 10): Promise<Idea[]> => {
