@@ -15,8 +15,10 @@ export const hackathonService = {
     startDate: string;
     endDate: string;
     registrationDeadline?: string;
+    hackathonType?: string;
     location: string;
     onlineLink?: string;
+    status?: HackathonStatus;
   }): Promise<Hackathon> => {
     const response = await api.post<ApiResponse<Hackathon>>('/hackathons', data);
     if (!response.data.success || !response.data.data) {

@@ -19,7 +19,7 @@ const AdminDashboard = () => {
   // Initialize taskView from URL param or default to 'post'
   const [taskView, setTaskView] = useState<TaskView>(() => {
     if (tabParam && ['post', 'pending', 'allPosts'].includes(tabParam)) {
-      return tabParam;
+      return tabParam as TaskView;
     }
     return 'post';
   });
@@ -48,6 +48,7 @@ const AdminDashboard = () => {
       loadTasks();
     }
   }, [taskView]);
+
 
   const loadAllPosts = async () => {
     try {
@@ -84,6 +85,7 @@ const AdminDashboard = () => {
       setIsLoading(false);
     }
   };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -283,18 +285,26 @@ const AdminDashboard = () => {
                 </div>
               )}
 
-              {isLoading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading pending tasks...</p>
-                </div>
-              ) : pendingIdeas.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg shadow-md">
-                  <p className="text-gray-500 text-lg">No pending tasks. Great job!</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {pendingIdeas.map((idea) => (
+              {(() => {
+                // Filter out hackathon ideas - only show regular ideas (no hackathonId)
+                const regularIdeas = pendingIdeas.filter((idea) => !idea.hackathonId);
+
+                return (
+                  <>
+                    {isLoading ? (
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Loading pending tasks...</p>
+                      </div>
+                    ) : regularIdeas.length === 0 ? (
+                      <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                        <p className="text-gray-500 text-lg">
+                          No pending ideas tasks. Great job!
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {regularIdeas.map((idea) => (
                     <div key={idea.id} className="bg-white rounded-lg shadow-md p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
@@ -309,7 +319,7 @@ const AdminDashboard = () => {
                           {idea.status}
                         </span>
                       </div>
-                      <div className="flex items-center justify-end space-x-4 pt-4 border-t">
+                      <div className="flex items-end justify-end space-x-4 pt-4 border-t">
                         <button
                           onClick={async () => {
                             try {
@@ -337,10 +347,13 @@ const AdminDashboard = () => {
                           Approve
                         </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                        </div>
+                      ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
 
@@ -381,6 +394,7 @@ const AdminDashboard = () => {
               )}
             </>
           )}
+
 
         </div>
       </div>

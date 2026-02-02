@@ -26,7 +26,6 @@ const NotificationDropdown = ({ isOpen, onClose, onMarkAllRead }: NotificationDr
     const handleClickOutside = (event: MouseEvent) => {
       // Don't close if we're navigating
       if (isNavigatingRef.current) {
-        console.log('🚫 Ignoring outside click - navigation in progress');
         return;
       }
       
@@ -36,7 +35,6 @@ const NotificationDropdown = ({ isOpen, onClose, onMarkAllRead }: NotificationDr
         // Also check if click is not on the notification bell button
         const bellButton = document.querySelector('[aria-label="Notifications"]');
         if (!bellButton || !bellButton.contains(target)) {
-          console.log('🔒 Closing dropdown - outside click detected');
           onClose();
         }
       }
@@ -61,62 +59,39 @@ const NotificationDropdown = ({ isOpen, onClose, onMarkAllRead }: NotificationDr
       const data = await notificationService.getNotifications();
       setNotifications(data);
     } catch (error) {
-      console.error('Failed to load notifications:', error);
+      // Failed to load notifications
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleNotificationClick = async (e: React.MouseEvent, notification: Notification) => {
-    console.log('🔔 Notification clicked:', {
-      id: notification.id,
-      type: notification.type,
-      isRead: notification.isRead,
-      ideaId: notification.ideaId,
-      hackathonId: notification.hackathonId,
-      notification
-    });
-    
     // Stop all event propagation immediately
     e.stopPropagation();
     e.nativeEvent.stopImmediatePropagation();
-    console.log('✅ Event propagation stopped');
     
     // Mark as read if not already read
     if (!notification.isRead) {
-      console.log('📝 Marking notification as read...');
       try {
-        const result = await notificationService.markAsRead(notification.id);
-        console.log('✅ Notification marked as read successfully:', result);
+        await notificationService.markAsRead(notification.id);
         setNotifications((prev) =>
           prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n))
         );
-        // Refresh count immediately and wait for it
-        console.log('🔄 Refreshing unread count...');
         await onMarkAllRead();
-        console.log('✅ Unread count refreshed');
       } catch (error) {
-        console.error('❌ Failed to mark notification as read:', error);
+        // Failed to mark notification as read
       }
-    } else {
-      console.log('ℹ️ Notification already read, skipping mark as read');
     }
     
     // Determine navigation path first
     let navigationPath: string | null = null;
     
-    console.log('🧭 Determining navigation path...');
     try {
       switch (notification.type) {
         case NotificationType.HACKATHON_REMINDER:
         case NotificationType.HACKATHON_REGISTRATION:
-          console.log('📍 Notification type:', notification.type);
-          // Navigate to hackathon details page
           if (notification.hackathonId) {
             navigationPath = `/hackathons/${notification.hackathonId}`;
-            console.log('✅ Navigation path set:', navigationPath);
-          } else {
-            console.warn('⚠️ Hackathon notification missing hackathonId');
           }
           break;
         
@@ -124,72 +99,52 @@ const NotificationDropdown = ({ isOpen, onClose, onMarkAllRead }: NotificationDr
         case NotificationType.LIKE:
         case NotificationType.IDEA_APPROVED:
         case NotificationType.IDEA_REJECTED:
-          console.log('📍 Notification type:', notification.type);
-          // Navigate to idea details page
           if (notification.ideaId) {
             navigationPath = `/ideas/${notification.ideaId}`;
-            console.log('✅ Navigation path set:', navigationPath);
-          } else {
-            console.warn('⚠️ Idea notification missing ideaId');
           }
           break;
         
         default:
-          console.log('📍 Notification type: DEFAULT (fallback)');
-          // Fallback: try to navigate to idea if ideaId exists
           if (notification.ideaId) {
             navigationPath = `/ideas/${notification.ideaId}`;
-            console.log('✅ Navigation path set (fallback - idea):', navigationPath);
           } else if (notification.hackathonId) {
             navigationPath = `/hackathons/${notification.hackathonId}`;
-            console.log('✅ Navigation path set (fallback - hackathon):', navigationPath);
-          } else {
-            console.warn('⚠️ Notification missing both ideaId and hackathonId');
           }
       }
     } catch (error) {
-      console.error('❌ Failed to determine navigation path:', error);
+      // Failed to determine navigation path
     }
     
     // Navigate immediately (before closing dropdown to ensure navigation happens)
     if (navigationPath) {
-      console.log('🚀 Navigating to:', navigationPath);
       isNavigatingRef.current = true;
       try {
         navigate(navigationPath);
-        console.log('✅ Navigation called successfully');
         
         // Close dropdown after navigation is initiated
         setTimeout(() => {
-          console.log('🔒 Closing dropdown...');
           onClose();
-          console.log('✅ Dropdown closed');
           // Reset navigation flag after a delay
           setTimeout(() => {
             isNavigatingRef.current = false;
           }, 500);
         }, 150);
       } catch (error) {
-        console.error('❌ Navigation failed:', error);
         isNavigatingRef.current = false;
         onClose();
       }
     } else {
-      console.error('❌ No navigation path determined, cannot navigate');
       onClose();
     }
   };
 
   const handleMarkAllRead = async () => {
-    console.log('📝 Marking all notifications as read...');
     try {
       await notificationService.markAllAsRead();
-      console.log('✅ All notifications marked as read');
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       onMarkAllRead();
-      console.log('✅ Unread count refreshed');
     } catch (error) {
-      console.error('❌ Failed to mark all as read:', error);
+      // Failed to mark all as read
     }
   };
 

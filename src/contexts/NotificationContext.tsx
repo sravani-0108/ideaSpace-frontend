@@ -14,19 +14,16 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [unreadCount, setUnreadCount] = useState(0);
 
   const refreshCount = useCallback(async () => {
-    console.log('🔄 Refreshing unread count...', { isAuthenticated });
     if (!isAuthenticated) {
-      console.log('ℹ️ User not authenticated, setting count to 0');
       setUnreadCount(0);
       return;
     }
 
     try {
       const count = await notificationService.getUnreadCount();
-      console.log('✅ Unread count fetched:', count);
       setUnreadCount(count);
     } catch (error) {
-      console.error('❌ Failed to load unread count:', error);
+      // Failed to load unread count
     }
   }, [isAuthenticated]);
 

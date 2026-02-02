@@ -20,6 +20,14 @@ import AdminHackathonDetails from './pages/admin/HackathonDetails';
 import CreateHackathon from './pages/admin/CreateHackathon';
 import UserDashboard from './pages/user/UserDashboard';
 import UserHackathonDetails from './pages/user/HackathonDetails';
+import SubmitIdeaForHackathon from './pages/user/SubmitIdeaForHackathon';
+import HandsOnHackathonIdeas from './pages/user/HandsOnHackathonIdeas';
+import ProjectSubmission from './pages/user/ProjectSubmission';
+import MyProjects from './pages/user/MyProjects';
+import MyTeams from './pages/user/MyTeams';
+import JudgeDashboard from './pages/judge/JudgeDashboard';
+import IdeaReview from './pages/judge/IdeaReview';
+import ProjectReview from './pages/judge/ProjectReview';
 import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 
@@ -53,6 +61,30 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/hackathons/:hackathonId/submit-idea"
+        element={
+          <ProtectedRoute>
+            <SubmitIdeaForHackathon />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hackathons/:hackathonId/ideas"
+        element={
+          <ProtectedRoute>
+            <HandsOnHackathonIdeas />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ideas/:ideaId/submit-project"
+        element={
+          <ProtectedRoute>
+            <ProjectSubmission />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/my-ideas"
         element={
           <ProtectedRoute>
@@ -65,6 +97,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <SavedItems />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-projects"
+        element={
+          <ProtectedRoute>
+            <MyProjects />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-teams"
+        element={
+          <ProtectedRoute>
+            <MyTeams />
           </ProtectedRoute>
         }
       />
@@ -141,6 +189,30 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requireAdmin>
             <AdminHackathonDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/judge/dashboard"
+        element={
+          <ProtectedRoute>
+            <JudgeDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/judge/ideas/:ideaId/review"
+        element={
+          <ProtectedRoute>
+            <IdeaReview />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/judge/projects/:projectId/review"
+        element={
+          <ProtectedRoute>
+            <ProjectReview />
           </ProtectedRoute>
         }
       />

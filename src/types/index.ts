@@ -1,13 +1,20 @@
 export enum UserRole {
   USER = 'USER',
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
+  JUDGE = 'JUDGE'
 }
 
 export enum IdeaStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   PUBLISHED = 'PUBLISHED',
-  REJECTED = 'REJECTED'
+  REJECTED = 'REJECTED',
+  // Hands-On Hackathon specific statuses
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  PITCHING = 'PITCHING',
+  ENHANCEMENTS = 'ENHANCEMENTS',
+  IMPLEMENTATION = 'IMPLEMENTATION',
+  COMPLETED = 'COMPLETED'
 }
 
 export enum NotificationType {
@@ -20,9 +27,27 @@ export enum NotificationType {
 }
 
 export enum HackathonStatus {
+  DRAFT = 'DRAFT',
   PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
-  COMPLETED = 'COMPLETED'
+  COMPLETED = 'COMPLETED',
+  OPEN = 'OPEN',      // For Hands-On hackathons
+  CLOSED = 'CLOSED'   // For Hands-On hackathons
+}
+
+export enum HackathonType {
+  LEARNING = 'LEARNING',
+  HANDS_ON = 'HANDS_ON'
+}
+
+export enum ProjectStatus {
+  NOT_SUBMITTED = 'NOT_SUBMITTED',
+  SUBMITTED = 'SUBMITTED',
+  LATE = 'LATE',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  COMPLETED = 'COMPLETED',
+  NEEDS_CHANGES = 'NEEDS_CHANGES',
+  DISQUALIFIED = 'DISQUALIFIED'
 }
 
 export interface Hackathon {
@@ -33,6 +58,7 @@ export interface Hackathon {
   startDate: string;
   endDate: string;
   registrationDeadline?: string;
+  hackathonType: HackathonType;
   location: string;
   onlineLink?: string;
   status: HackathonStatus;
@@ -101,6 +127,15 @@ export interface Idea {
   title: string;
   description: string;
   status: IdeaStatus;
+  hackathonId?: string;
+  hackathon?: Hackathon;
+  rejectionReason?: string;
+  projectDeadline?: string;
+  statusDeadline?: string;
+  gitRepositoryUrl?: string;
+  documentationUrl?: string;
+  videoUrl?: string;
+  zipFilePath?: string;
   author?: {
     id: string;
     email: string;
@@ -118,6 +153,30 @@ export interface Idea {
   createdAt: string;
   updatedAt: string;
   isLiked?: boolean;
+}
+
+export interface Project {
+  id: string;
+  ideaId: string;
+  userId: string;
+  status: ProjectStatus;
+  githubUrl?: string;
+  demoVideoUrl?: string;
+  documentationUrl?: string;
+  zipFilePath?: string;
+  projectDescription?: string;
+  implementationDetails?: string;
+  pitchVideoUrl?: string;
+  presentationUrl?: string;
+  judgeFeedback?: string;
+  reviewedBy?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  idea?: Idea;
+  user?: User;
+  reviewer?: User;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Comment {

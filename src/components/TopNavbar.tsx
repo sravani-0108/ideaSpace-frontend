@@ -58,9 +58,7 @@ const TopNavbar = () => {
   };
 
   const handleMarkAllRead = async () => {
-    console.log('🔄 TopNavbar: Refreshing unread count...');
     await refreshCount();
-    console.log('✅ TopNavbar: Unread count refreshed');
   };
 
   if (!user) {

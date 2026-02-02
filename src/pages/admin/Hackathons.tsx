@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
-import { Hackathon, HackathonStatus } from '../../types';
+import { Hackathon, HackathonStatus, HackathonType } from '../../types';
 import AdminSidebar from '../../components/AdminSidebar';
 import { useAuth } from '../../contexts/AuthContext';
 
+type HackathonTypeFilter = 'all' | 'learning' | 'handsOn';
+
 const Hackathons = () => {
-  const { isAdmin } = useAuth();
+  const { isAdminOrJudge } = useAuth();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [nextHackathon, setNextHackathon] = useState<Hackathon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [hackathonTypeFilter, setHackathonTypeFilter] = useState<HackathonTypeFilter>('all');
 
   useEffect(() => {
     loadHackathons();
@@ -73,6 +76,18 @@ const Hackathons = () => {
     }
   };
 
+  // Check if next hackathon should be shown based on filter
+  const shouldShowNextHackathon = nextHackathon && (() => {
+    if (hackathonTypeFilter === 'all') return true;
+    if (hackathonTypeFilter === 'learning') {
+      return nextHackathon.hackathonType === HackathonType.LEARNING;
+    }
+    if (hackathonTypeFilter === 'handsOn') {
+      return nextHackathon.hackathonType === HackathonType.HANDS_ON;
+    }
+    return true;
+  })();
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
@@ -84,7 +99,7 @@ const Hackathons = () => {
               <h1 className="text-3xl font-bold text-gray-900">Hackathons</h1>
               <p className="mt-2 text-gray-600">Manage and view all hackathons</p>
             </div>
-            {isAdmin && (
+            {isAdminOrJudge && (
               <Link
                 to="/admin/hackathons/create"
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -94,8 +109,29 @@ const Hackathons = () => {
             )}
           </div>
 
+          {/* Hackathon Type Filter */}
+          <div className="mb-6 flex items-center gap-2">
+            <span className="text-sm text-gray-600 font-medium">Filter by type:</span>
+            <div className="relative">
+              <select
+                value={hackathonTypeFilter}
+                onChange={(e) => setHackathonTypeFilter(e.target.value as HackathonTypeFilter)}
+                className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer appearance-none pr-8"
+              >
+                <option value="all">All</option>
+                <option value="learning">Learning</option>
+                <option value="handsOn">Hands-On</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
           {/* Next Hackathon Card */}
-          {nextHackathon && (
+          {shouldShowNextHackathon && (
             <Link
               to={`/admin/hackathons/${nextHackathon.id}`}
               className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6 block hover:shadow-md transition-shadow cursor-pointer"
@@ -156,41 +192,72 @@ const Hackathons = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Loading hackathons...</p>
             </div>
-          ) : hackathons.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow-md">
-              <p className="text-gray-500 text-lg">No hackathons found</p>
-              {isAdmin && (
-                <Link
-                  to="/admin/hackathons/create"
-                  className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Create Your First Hackathon
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {hackathons
-                .filter(hackathon => !nextHackathon || hackathon.id !== nextHackathon.id)
-                .sort((a, b) => {
-                  // Sort order: Active first, then Upcoming, then Completed
-                  const statusOrder = {
-                    [HackathonStatus.ACTIVE]: 1,
-                    [HackathonStatus.PENDING]: 2,
-                    [HackathonStatus.COMPLETED]: 3,
-                  };
-                  
-                  const orderA = statusOrder[a.status] || 999;
-                  const orderB = statusOrder[b.status] || 999;
-                  
-                  if (orderA !== orderB) {
-                    return orderA - orderB;
-                  }
-                  
-                  // If same status, sort by start date (earliest first)
-                  return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-                })
-                .map((hackathon) => (
+          ) : (() => {
+            // Filter hackathons based on type
+            const filteredHackathons = hackathons.filter((hackathon: Hackathon) => {
+              if (hackathonTypeFilter === 'all') return true;
+              if (hackathonTypeFilter === 'learning') {
+                return hackathon.hackathonType === HackathonType.LEARNING;
+              }
+              if (hackathonTypeFilter === 'handsOn') {
+                return hackathon.hackathonType === HackathonType.HANDS_ON;
+              }
+              return true;
+            });
+            
+            // Exclude next hackathon from list if it's shown separately
+            const displayHackathons = filteredHackathons.filter((hackathon: Hackathon) => 
+              !nextHackathon || hackathon.id !== nextHackathon.id
+            );
+            
+            // Check if there are any hackathons to display (including nextHackathon)
+            const hasAnyHackathons = filteredHackathons.length > 0 || (shouldShowNextHackathon && nextHackathon);
+            
+            if (!hasAnyHackathons) {
+              return (
+                <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                  <p className="text-gray-500 text-lg">
+                    No {hackathonTypeFilter !== 'all' ? (hackathonTypeFilter === 'learning' ? 'Learning' : 'Hands-On') : ''} hackathons found
+                  </p>
+                </div>
+              );
+            }
+            
+            if (displayHackathons.length === 0 && !shouldShowNextHackathon) {
+              return (
+                <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                  <p className="text-gray-500 text-lg">
+                    No {hackathonTypeFilter !== 'all' ? (hackathonTypeFilter === 'learning' ? 'Learning' : 'Hands-On') : ''} hackathons found
+                  </p>
+                </div>
+              );
+            }
+            
+            return (
+              <div className="space-y-6">
+                {displayHackathons
+                  .sort((a: Hackathon, b: Hackathon) => {
+                    // Sort order: Active first, then Upcoming, then Completed
+                    const statusOrder: Record<HackathonStatus, number> = {
+                      [HackathonStatus.ACTIVE]: 1,
+                      [HackathonStatus.PENDING]: 2,
+                      [HackathonStatus.COMPLETED]: 3,
+                      [HackathonStatus.DRAFT]: 4,
+                      [HackathonStatus.OPEN]: 5,
+                      [HackathonStatus.CLOSED]: 6,
+                    };
+                    
+                    const orderA = statusOrder[a.status] || 999;
+                    const orderB = statusOrder[b.status] || 999;
+                    
+                    if (orderA !== orderB) {
+                      return orderA - orderB;
+                    }
+                    
+                    // If same status, sort by start date (earliest first)
+                    return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+                  })
+                  .map((hackathon: Hackathon) => (
                 <Link
                   key={hackathon.id}
                   to={`/admin/hackathons/${hackathon.id}`}
@@ -240,8 +307,9 @@ const Hackathons = () => {
                   </div>
                 </Link>
               ))}
-            </div>
-          )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

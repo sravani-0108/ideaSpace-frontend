@@ -13,13 +13,30 @@ import CommentItem from './CommentItem';
 interface FeedPostProps {
   idea: Idea;
   onUpdate?: (updatedIdea: Idea) => void;
+  hideAuthor?: boolean; // Hide author info and show edit button instead
+  showEditButton?: boolean; // Show edit button (opens modal)
+  showRegistrationEndDate?: boolean; // Show registration end date
+  registrationEndDate?: string; // Registration end date value
+  showContent?: boolean; // Show title and description (even when hideAuthor is true)
 }
 
-const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
+const FeedPost = ({ 
+  idea: initialIdea, 
+  onUpdate,
+  hideAuthor = false,
+  showEditButton = false,
+  showRegistrationEndDate = false,
+  registrationEndDate,
+  showContent = true // Default to showing content
+}: FeedPostProps) => {
   const { isAuthenticated, user } = useAuth();
   const { refreshCount } = useNotifications();
   const navigate = useNavigate();
   const [idea, setIdea] = useState<Idea>(initialIdea);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTitle, setEditTitle] = useState(idea.title);
+  const [editDescription, setEditDescription] = useState(idea.description);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isTogglingSave, setIsTogglingSave] = useState(false);
   const [isTogglingLike, setIsTogglingLike] = useState(false);
@@ -35,6 +52,8 @@ const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
 
   useEffect(() => {
     setIdea(initialIdea);
+    setEditTitle(initialIdea.title);
+    setEditDescription(initialIdea.description);
   }, [initialIdea]);
 
   useEffect(() => {
@@ -64,7 +83,7 @@ const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
       const ideaDetails = await ideaService.getIdeaById(idea.id);
       setComments(ideaDetails.comments || []);
     } catch (error) {
-      console.error('Failed to load comments:', error);
+      // Failed to load comments
     } finally {
       setIsLoadingComments(false);
     }
@@ -89,7 +108,7 @@ const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
         setIsSaved(true);
       }
     } catch (error) {
-      console.error('Failed to toggle save:', error);
+      // Failed to toggle save
     } finally {
       setIsTogglingSave(false);
     }
@@ -120,7 +139,7 @@ const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
         refreshCount();
       }
     } catch (error: any) {
-      console.error('Failed to toggle like:', error);
+      // Failed to toggle like
     } finally {
       setIsTogglingLike(false);
     }
@@ -140,7 +159,7 @@ const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
       setNewComment('');
       refreshCount();
     } catch (error) {
-      console.error('Failed to post comment:', error);
+      // Failed to post comment
     } finally {
       setIsSubmittingComment(false);
     }
@@ -190,77 +209,145 @@ const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
     }
   };
 
+  const handleEditClick = () => {
+    setEditTitle(idea.title);
+    setEditDescription(idea.description);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateIdea = async () => {
+    if (!editTitle.trim() || !editDescription.trim()) {
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const updatedIdea = await ideaService.createIdea({
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        hackathonId: idea.hackathonId,
+      });
+      
+      setIdea(updatedIdea);
+      if (onUpdate) {
+        onUpdate(updatedIdea);
+      }
+      setShowEditModal(false);
+    } catch (error: any) {
+      // Failed to update idea
+      alert(error.response?.data?.message || 'Failed to update idea');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex flex-row items-center space-x-3">
-          {/* Avatar - MUST BE FIRST ELEMENT - Order: 1 */}
-          {profilePicUrl ? (
-            <img
-              key={`${authorId}-${(author as any)?.profilePicture || 'no-pic'}`}
-              src={profilePicUrl}
-              alt={authorName}
-              onClick={handleAuthorClick}
-              className="w-12 h-12 rounded-full object-cover flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all order-1"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const fallback = document.createElement('div');
-                fallback.className = 'w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all order-1';
-                fallback.textContent = authorInitial;
-                fallback.onclick = handleAuthorClick;
-                target.parentNode?.appendChild(fallback);
-              }}
-            />
-          ) : (
-            <div 
-              onClick={handleAuthorClick}
-              className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all order-1"
-            >
-              {authorInitial}
+        {hideAuthor ? (
+          // Hide author, show edit icon button and registration end date
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-4 flex-1">
+              {showEditButton && (
+                <button
+                  onClick={handleEditClick}
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 transition-colors shadow-sm"
+                  title="Edit Idea"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
+              {showRegistrationEndDate && registrationEndDate && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">Registration Ends:</span>
+                  <span>{new Date(registrationEndDate).toLocaleString()}</span>
+                </div>
+              )}
             </div>
-          )}
-          {/* Name - MUST BE SECOND ELEMENT AFTER AVATAR - Order: 2 */}
-          <h3 
-            onClick={handleAuthorClick}
-            className="font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors order-2"
-          >
-            {authorName}
-          </h3>
-        </div>
-        <div className="flex-shrink-0">
-          <span className="text-gray-500 text-sm">{formatDate(idea.createdAt)}</span>
-        </div>
+            <div className="flex-shrink-0">
+              <span className="text-gray-500 text-sm">{formatDate(idea.createdAt)}</span>
+            </div>
+          </div>
+        ) : (
+          // Show author info (default behavior)
+          <>
+            <div className="flex flex-row items-center space-x-3">
+              {/* Avatar - MUST BE FIRST ELEMENT - Order: 1 */}
+              {profilePicUrl ? (
+                <img
+                  key={`${authorId}-${(author as any)?.profilePicture || 'no-pic'}`}
+                  src={profilePicUrl}
+                  alt={authorName}
+                  onClick={handleAuthorClick}
+                  className="w-12 h-12 rounded-full object-cover flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all order-1"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = document.createElement('div');
+                    fallback.className = 'w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all order-1';
+                    fallback.textContent = authorInitial;
+                    fallback.onclick = handleAuthorClick;
+                    target.parentNode?.appendChild(fallback);
+                  }}
+                />
+              ) : (
+                <div 
+                  onClick={handleAuthorClick}
+                  className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all order-1"
+                >
+                  {authorInitial}
+                </div>
+              )}
+              {/* Name - MUST BE SECOND ELEMENT AFTER AVATAR - Order: 2 */}
+              <h3 
+                onClick={handleAuthorClick}
+                className="font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors order-2"
+              >
+                {authorName}
+              </h3>
+            </div>
+            <div className="flex-shrink-0">
+              <span className="text-gray-500 text-sm">{formatDate(idea.createdAt)}</span>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Content */}
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">{idea.title}</h2>
-        <div className="text-gray-700 text-sm">
-          {showFullDescription || idea.description.length <= DESCRIPTION_PREVIEW_LENGTH ? (
-            <p className="whitespace-pre-wrap">{idea.description}</p>
-          ) : (
-            <>
-              <p>{idea.description.substring(0, DESCRIPTION_PREVIEW_LENGTH)}...</p>
+      {/* Content - Show if showContent is true (default true, but can be controlled) */}
+      {showContent && (
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">{idea.title}</h2>
+          <div className="text-gray-700 text-sm">
+            {showFullDescription || idea.description.length <= DESCRIPTION_PREVIEW_LENGTH ? (
+              <p className="whitespace-pre-wrap">{idea.description}</p>
+            ) : (
+              <>
+                <p>{idea.description.substring(0, DESCRIPTION_PREVIEW_LENGTH)}...</p>
+                <button
+                  onClick={() => setShowFullDescription(true)}
+                  className="text-blue-600 hover:text-blue-700 font-medium mt-1"
+                >
+                  Show more
+                </button>
+              </>
+            )}
+            {showFullDescription && idea.description.length > DESCRIPTION_PREVIEW_LENGTH && (
               <button
-                onClick={() => setShowFullDescription(true)}
-                className="text-blue-600 hover:text-blue-700 font-medium mt-1"
+                onClick={() => setShowFullDescription(false)}
+                className="text-blue-600 hover:text-blue-700 font-medium mt-1 block"
               >
-                Show more
+                Show less
               </button>
-            </>
-          )}
-          {showFullDescription && idea.description.length > DESCRIPTION_PREVIEW_LENGTH && (
-            <button
-              onClick={() => setShowFullDescription(false)}
-              className="text-blue-600 hover:text-blue-700 font-medium mt-1 block"
-            >
-              Show less
-            </button>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Footer - Actions */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
@@ -418,6 +505,74 @@ const FeedPost = ({ idea: initialIdea, onUpdate }: FeedPostProps) => {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">Edit Idea</h2>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1">
+                    Idea Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="edit-title"
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your idea title"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">
+                    Description <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="edit-description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={6}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="Describe your idea in detail"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    disabled={isUpdating}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateIdea}
+                    disabled={isUpdating || !editTitle.trim() || !editDescription.trim()}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isUpdating ? 'Updating...' : 'Update Idea'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

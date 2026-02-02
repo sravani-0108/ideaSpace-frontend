@@ -14,7 +14,7 @@ interface RightSidebarProps {
 }
 
 const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps = {}) => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdminOrJudge } = useAuth();
   const navigate = useNavigate();
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
   const [registeredHackathons, setRegisteredHackathons] = useState<Hackathon[]>([]);
@@ -38,8 +38,8 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
         }
       }
 
-      // Load all hackathons for calendar (for users, not admins)
-      if (user && !isAdmin) {
+      // Load all hackathons for calendar (for users, not admins/judges)
+      if (user && !isAdminOrJudge) {
         try {
           // Load all hackathons for calendar display
           const allHackathonsData = await hackathonService.getAllHackathons();
@@ -454,7 +454,7 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
     <div className="w-80 flex-shrink-0">
       <div className="space-y-4 sticky top-20">
         {/* Event Reminders Section */}
-        {user && !isAdmin && eventReminders.length > 0 && (
+        {user && !isAdminOrJudge && eventReminders.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h3 className="text-base font-bold text-gray-900 mb-4">Upcoming Reminders</h3>
             <div className="space-y-3">
@@ -541,7 +541,7 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
         )}
 
         {/* Registered Hackathons Section */}
-        {user && !isAdmin && (
+        {user && !isAdminOrJudge && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">My Hackathons</h3>
             {isLoading ? (

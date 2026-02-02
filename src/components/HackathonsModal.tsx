@@ -48,7 +48,7 @@ const HackathonsModal = ({ isOpen, onClose, isAdmin = false }: HackathonsModalPr
   };
 
   const checkRegistrationStatuses = async () => {
-    if (isAdmin) return; // Admin doesn't need registration status
+    if (isAdmin) return; // Admin/Judge doesn't need registration status
     const statuses: Record<string, boolean> = {};
     for (const hackathon of hackathons) {
       try {
@@ -62,7 +62,7 @@ const HackathonsModal = ({ isOpen, onClose, isAdmin = false }: HackathonsModalPr
   };
 
   const handleRegister = async (hackathonId: string) => {
-    if (!user || isAdmin) return;
+    if (!user || isAdmin) return; // Admin/Judge can't register
 
     setRegisteringIds(prev => new Set(prev).add(hackathonId));
     try {

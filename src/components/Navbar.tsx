@@ -5,7 +5,7 @@ import { useNotifications } from '../contexts/NotificationContext';
 import NotificationDropdown from './NotificationDropdown';
 
 const Navbar = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdminOrJudge } = useAuth();
   const { unreadCount, refreshCount } = useNotifications();
   const navigate = useNavigate();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -56,7 +56,7 @@ const Navbar = () => {
                   >
                     My Ideas
                   </Link>
-                  {isAdmin && (
+                  {isAdminOrJudge && (
                     <Link
                       to="/admin/review"
                       className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"

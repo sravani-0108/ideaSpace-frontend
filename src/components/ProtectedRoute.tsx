@@ -8,13 +8,13 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdminOrJudge } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requireAdmin && !isAdmin) {
+  if (requireAdmin && !isAdminOrJudge) {
     return <Navigate to="/" replace />;
   }
 

@@ -3,10 +3,10 @@ import { useAuth } from '../contexts/AuthContext';
 import UserDashboard from './user/UserDashboard';
 
 const Dashboard = () => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdminOrJudge } = useAuth();
   
-  // Redirect admin to admin dashboard
-  if (isAdmin && isAuthenticated) {
+  // Redirect admin/judge to admin dashboard
+  if (isAdminOrJudge && isAuthenticated) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 

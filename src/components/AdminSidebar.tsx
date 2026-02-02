@@ -3,9 +3,9 @@ import { useAuth } from '../contexts/AuthContext';
 
 const AdminSidebar = () => {
   const location = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdminOrJudge } = useAuth();
 
-  if (!isAdmin) return null;
+  if (!isAdminOrJudge) return null;
 
   const isActive = (path: string) => location.pathname === path;
 
