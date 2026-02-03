@@ -12,6 +12,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isJudge: boolean;
   isAdminOrJudge: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load user and token from localStorage on mount
@@ -39,7 +41,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })
         .catch((error) => {
           // Silently fail - token might be expired or user not authenticated
+        })
+        .finally(() => {
+          setIsLoading(false);
         });
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
@@ -68,7 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isAdminOrJudge = isAdmin || isJudge;
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated, isAdmin, isJudge, isAdminOrJudge }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated, isAdmin, isJudge, isAdminOrJudge, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

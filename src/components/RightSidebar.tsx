@@ -1,22 +1,18 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { hackathonService } from '../services/hackathon.service';
-import { meetingService } from '../services/meeting.service';
 import { registrationService } from '../services/registration.service';
-import { Hackathon, Meeting, HackathonStatus } from '../types';
+import { Hackathon, HackathonStatus } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 interface RightSidebarProps {
   /** Optional specific hackathon to display in calendar (e.g., when viewing hackathon details) */
   specificHackathon?: Hackathon;
-  /** Optional meetings for the specific hackathon */
-  specificMeetings?: Meeting[];
 }
 
-const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps = {}) => {
+const RightSidebar = ({ specificHackathon }: RightSidebarProps = {}) => {
   const { user, isAdminOrJudge } = useAuth();
   const navigate = useNavigate();
-  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
   const [registeredHackathons, setRegisteredHackathons] = useState<Hackathon[]>([]);
   const [allHackathons, setAllHackathons] = useState<Hackathon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,11 +28,6 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
       setIsLoading(true);
       
       // If specific hackathon is provided, use it for calendar
-      if (specificHackathon) {
-        if (specificMeetings) {
-          setUpcomingMeetings(specificMeetings);
-        }
-      }
 
       // Load all hackathons for calendar (for users, not admins/judges)
       if (user && !isAdminOrJudge) {
@@ -66,22 +57,6 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
         }
       }
 
-      // Load upcoming meetings (unless specific meetings are provided)
-      if (user && !specificMeetings) {
-        try {
-          const meetings = await meetingService.getUserMeetings();
-          // Filter to show only upcoming meetings (next 7 days)
-          const now = new Date();
-          const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          const upcoming = meetings.filter(meeting => {
-            const meetingDate = new Date(meeting.scheduledDate);
-            return meetingDate >= now && meetingDate <= nextWeek;
-          }).slice(0, 3); // Show max 3 upcoming meetings
-          setUpcomingMeetings(upcoming);
-        } catch (error) {
-          // Silently fail - meetings are optional
-        }
-      }
     } catch (error) {
       // Silently fail - sidebar data is optional
     } finally {
@@ -95,7 +70,7 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
       loadSidebarData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, specificHackathon, specificMeetings]);
+  }, [user, specificHackathon]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
@@ -211,7 +186,7 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
 
 
   // Calendar Widget Component
-  const CalendarWidget = ({ hackathons, meetings }: { hackathons: Hackathon[]; meetings: Meeting[] }) => {
+  const CalendarWidget = ({ hackathons }: { hackathons: Hackathon[] }) => {
     const [displayDate, setDisplayDate] = useState(new Date());
     const [hoveredDate, setHoveredDate] = useState<{ day: number; month: number; year: number } | null>(null);
     const today = new Date();
@@ -243,10 +218,9 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
     const monthEvents = useMemo(() => {
       const events: Array<{ 
         date: number; 
-        type: 'registration' | 'hackathon-start' | 'hackathon-end' | 'meeting'; 
+        type: 'registration' | 'hackathon-start' | 'hackathon-end'; 
         title: string;
         hackathon?: Hackathon;
-        meeting?: Meeting;
       }> = [];
 
       // Filter out completed hackathons - only show active and upcoming
@@ -279,21 +253,8 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
         }
       });
 
-      // Add meetings
-      meetings.forEach((meeting) => {
-        const meetingDate = new Date(meeting.scheduledDate);
-        if (meetingDate.getMonth() === currentMonth && meetingDate.getFullYear() === currentYear) {
-          events.push({
-            date: meetingDate.getDate(),
-            type: 'meeting',
-            title: meeting.title,
-            meeting,
-          });
-        }
-      });
-
       return events;
-    }, [hackathons, meetings, currentMonth, currentYear]);
+    }, [hackathons, currentMonth, currentYear]);
 
     // Get hackathons for a specific date
     const getHackathonsForDate = (day: number): Hackathon[] => {
@@ -392,10 +353,6 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
               const hackathonsForDay = calDay.hackathons || [];
               const isHovered = hoveredDate?.day === calDay.day && hoveredDate?.month === currentMonth && hoveredDate?.year === currentYear;
               
-              const getEventColor = () => {
-                if (calDay.eventType === 'meeting') return 'bg-green-500';
-                return '';
-              };
 
               // Build tooltip content for hackathon start dates
               const tooltipContent = hasHackathonStart && hackathonsForDay.length > 0
@@ -416,8 +373,6 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
                       ? 'bg-blue-600 text-white font-medium cursor-pointer hover:bg-blue-700'
                       : hasHackathonEnd || hasRegistration
                       ? 'text-gray-700 hover:bg-gray-50'
-                      : calDay.hasEvent && !hasHackathonEnd && !hasRegistration
-                      ? `${getEventColor()} text-white font-medium`
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                   title={calDay.hasEvent && !hasHackathonStart ? monthEvents.find(e => e.date === calDay.day)?.title : ''}
@@ -594,41 +549,10 @@ const RightSidebar = ({ specificHackathon, specificMeetings }: RightSidebarProps
           </div>
         )}
 
-        {/* Upcoming Meetings */}
-        {upcomingMeetings.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Upcoming Meetings</h3>
-            <div className="space-y-3">
-              {upcomingMeetings.map((meeting) => (
-                <div key={meeting.id} className="border-l-2 border-blue-500 pl-3">
-                  <h4 className="text-sm font-medium text-gray-900 mb-1">{meeting.title}</h4>
-                  <div className="text-xs text-gray-600 space-y-1">
-                    <div>
-                      <span className="font-medium text-gray-700">Date:</span>
-                      <span className="ml-1">{formatDate(meeting.scheduledDate)}</span>
-                    </div>
-                    {meeting.meetingLink && (
-                      <a
-                        href={meeting.meetingLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 text-xs inline-flex items-center"
-                      >
-                        Join Teams →
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Calendar Preview with Events */}
         {!isLoading && (
           <CalendarWidget 
             hackathons={specificHackathon ? [specificHackathon] : allHackathons} 
-            meetings={specificMeetings || upcomingMeetings} 
           />
         )}
       </div>

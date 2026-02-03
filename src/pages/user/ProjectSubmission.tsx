@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { projectService } from '../../services/project.service';
 import { ideaService } from '../../services/idea.service';
-import { Idea, Project, IdeaStatus, HackathonType } from '../../types';
+import { Idea, IdeaStatus, HackathonType } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ProjectSubmission = () => {
@@ -10,7 +9,6 @@ const ProjectSubmission = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [idea, setIdea] = useState<Idea | null>(null);
-  const [project, setProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({
     githubUrl: '',
     demoVideoUrl: '',
@@ -35,23 +33,20 @@ const ProjectSubmission = () => {
     if (!ideaId) return;
     try {
       setIsLoadingData(true);
-      const [ideaData, projectData] = await Promise.all([
-        ideaService.getIdeaById(ideaId),
-        projectService.getProjectByIdeaId(ideaId).catch(() => null),
-      ]);
+      const ideaData = await ideaService.getIdeaById(ideaId);
 
       setIdea(ideaData);
-      setProject(projectData || null);
 
-      if (projectData) {
+      // Load existing project details from idea
+      if (ideaData) {
         setFormData({
-          githubUrl: projectData.githubUrl || '',
-          demoVideoUrl: projectData.demoVideoUrl || '',
-          documentationUrl: projectData.documentationUrl || '',
-          projectDescription: projectData.projectDescription || '',
-          implementationDetails: projectData.implementationDetails || '',
-          pitchVideoUrl: projectData.pitchVideoUrl || '',
-          presentationUrl: projectData.presentationUrl || '',
+          githubUrl: ideaData.githubUrl || '',
+          demoVideoUrl: ideaData.demoVideoUrl || '',
+          documentationUrl: ideaData.documentationUrl || '',
+          projectDescription: ideaData.projectDescription || '',
+          implementationDetails: ideaData.implementationDetails || '',
+          pitchVideoUrl: ideaData.pitchVideoUrl || '',
+          presentationUrl: ideaData.presentationUrl || '',
         });
       }
 
@@ -152,18 +147,18 @@ const ProjectSubmission = () => {
 
     setIsLoading(true);
     try {
-      const submittedProject = await projectService.submitProject(ideaId, formData);
-      setProject(submittedProject);
+      const updatedIdea = await ideaService.updateProjectDetails(ideaId, formData);
+      setIdea(updatedIdea);
       setMessage(
         isLate()
-          ? 'Project submitted successfully! Note: This is a late submission.'
-          : 'Project submitted successfully!'
+          ? 'Project details updated successfully! Note: This is a late submission.'
+          : 'Project details updated successfully!'
       );
       setTimeout(() => {
         navigate(`/ideas/${ideaId}`);
       }, 2000);
     } catch (error: any) {
-      setMessage(error.response?.data?.message || 'Failed to submit project. Please try again.');
+      setMessage(error.response?.data?.message || 'Failed to update project details. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -226,16 +221,16 @@ const ProjectSubmission = () => {
           </div>
         )}
 
-        {project && (
+        {idea && (idea.githubUrl || idea.demoVideoUrl || idea.projectDescription || idea.judgeFeedback) && (
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <h3 className="font-semibold mb-2">Current Submission Status</h3>
             <p className="text-sm text-gray-700">
-              Status: <span className="font-medium">{project.status}</span>
+              Status: <span className="font-medium">{idea.status}</span>
             </p>
-            {project.judgeFeedback && (
+            {idea.judgeFeedback && (
               <div className="mt-2 p-2 bg-white rounded border border-gray-200">
                 <p className="text-sm font-medium">Judge Feedback:</p>
-                <p className="text-sm text-gray-700">{project.judgeFeedback}</p>
+                <p className="text-sm text-gray-700">{idea.judgeFeedback}</p>
               </div>
             )}
           </div>
@@ -404,7 +399,7 @@ const ProjectSubmission = () => {
                 disabled={isLoading || !submissionAllowed}
                 className="px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Submitting...' : project ? 'Update Submission' : 'Submit Project'}
+                {isLoading ? 'Updating...' : (idea?.githubUrl || idea?.demoVideoUrl || idea?.projectDescription) ? 'Update Project Details' : 'Submit Project Details'}
               </button>
             </div>
           </div>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { meetingService } from '../../services/meeting.service';
 import { hackathonService } from '../../services/hackathon.service';
-import { Meeting, Hackathon } from '../../types';
+import { Hackathon } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import Calendar from '../../components/Calendar';
 import LeftSidebar from '../../components/LeftSidebar';
@@ -9,7 +8,6 @@ import RightSidebar from '../../components/RightSidebar';
 
 const MyCalendar = () => {
   const { user } = useAuth();
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,10 +23,6 @@ const MyCalendar = () => {
       setIsLoading(true);
       setError('');
       
-      // Load user meetings
-      const userMeetings = await meetingService.getUserMeetings();
-      setMeetings(userMeetings);
-
       // Load all hackathons (Calendar component will handle showing all and registration)
       const allHackathons = await hackathonService.getAllHackathons();
       setHackathons(allHackathons);
@@ -50,7 +44,7 @@ const MyCalendar = () => {
           <div className="flex-1">
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900">My Calendar</h1>
-              <p className="mt-1 text-gray-600 text-sm">Hackathon dates and meeting schedules</p>
+              <p className="mt-1 text-gray-600 text-sm">Hackathon dates and schedules</p>
             </div>
 
             {error && (
@@ -73,7 +67,6 @@ const MyCalendar = () => {
             ) : (
               <Calendar 
                 hackathons={hackathons} 
-                meetings={meetings} 
                 showAllHackathons={true}
                 onHackathonRegistered={loadCalendarData}
               />

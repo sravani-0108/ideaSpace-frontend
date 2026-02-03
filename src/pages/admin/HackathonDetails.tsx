@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
-import { meetingService } from '../../services/meeting.service';
 import { ideaService } from '../../services/idea.service';
 import { adminService } from '../../services/admin.service';
 import { teamService } from '../../services/team.service';
-import { Hackathon, HackathonStatus, HackathonType, Meeting, Idea, IdeaStatus, Team, HackathonRegistration } from '../../types';
+import { Hackathon, HackathonStatus, HackathonType, Idea, IdeaStatus, Team, HackathonRegistration } from '../../types';
 import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../../utils/user.util';
 import AdminSidebar from '../../components/AdminSidebar';
 import Calendar from '../../components/Calendar';
@@ -13,7 +12,6 @@ import Calendar from '../../components/Calendar';
 const HackathonDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamMembersMap, setTeamMembersMap] = useState<Record<string, HackathonRegistration[]>>({});
@@ -25,14 +23,23 @@ const HackathonDetails = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [updatingIdeaId, setUpdatingIdeaId] = useState<string | null>(null);
-  const [ideaStatusChanges, setIdeaStatusChanges] = useState<Record<string, { status: IdeaStatus; deadline: string }>>({});
+  const [ideaStatusChanges, setIdeaStatusChanges] = useState<Record<string, { status: IdeaStatus; deadline: string; rejectionReason?: string }>>({});
 
   useEffect(() => {
     if (id) {
       loadHackathon();
-      loadIdeas();
     }
   }, [id]);
+
+  useEffect(() => {
+    // Only load ideas for Hands-On hackathons
+    if (id && hackathon && hackathon.hackathonType === HackathonType.HANDS_ON) {
+      loadIdeas();
+    } else if (hackathon && hackathon.hackathonType !== HackathonType.HANDS_ON) {
+      // Clear ideas for Learning hackathons
+      setIdeas([]);
+    }
+  }, [id, hackathon]);
 
   const loadHackathon = async () => {
     try {
@@ -41,14 +48,6 @@ const HackathonDetails = () => {
       const data = await hackathonService.getHackathonById(id!);
       setHackathon(data);
 
-      // Load meetings for this hackathon
-      try {
-        const hackathonMeetings = await meetingService.getHackathonMeetings(id!);
-        setMeetings(hackathonMeetings);
-      } catch (err) {
-        // Silently fail - meetings are optional
-        setMeetings([]);
-      }
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Failed to load hackathon');
     } finally {
@@ -91,11 +90,12 @@ const HackathonDetails = () => {
     }
   };
 
-  const handleIdeaStatusChange = async (ideaId: string, newStatus: IdeaStatus, statusDeadline?: string) => {
+  const handleIdeaStatusChange = async (ideaId: string, newStatus: IdeaStatus, statusDeadline?: string, rejectionReason?: string) => {
     setUpdatingIdeaId(ideaId);
     try {
       await adminService.updateIdeaStatus(ideaId, newStatus, {
         statusDeadline: statusDeadline,
+        rejectionReason: rejectionReason,
       });
       // Reload ideas to get updated status
       await loadIdeas();
@@ -316,7 +316,7 @@ const HackathonDetails = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column - Calendar */}
               <div className="lg:col-span-1 border-r border-gray-200 pr-6">
-                <Calendar hackathons={[hackathon]} meetings={meetings} />
+                <Calendar hackathons={[hackathon]} />
               </div>
 
               {/* Middle Column - Event Details */}
@@ -377,7 +377,7 @@ const HackathonDetails = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                       </svg>
                       <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">Microsoft Teams Link</p>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Online Event Link</p>
                         <a
                           href={hackathon.onlineLink}
                           target="_blank"
@@ -420,7 +420,7 @@ const HackathonDetails = () => {
                   disabled={isSendingReminders || hackathon.status === HackathonStatus.COMPLETED}
                   className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium mb-3"
                 >
-                  {isSendingReminders ? 'Sending...' : 'Send Reminder Blast'}
+                  {isSendingReminders ? 'Sending...' : 'Send Reminder'}
                 </button>
                 {hackathon.status === HackathonStatus.COMPLETED && (
                   <p className="text-xs text-gray-500">
@@ -436,10 +436,11 @@ const HackathonDetails = () => {
             </div>
           </div>
 
-          {/* Submitted Ideas Section */}
+          {/* Submitted Ideas Section - Only for Hands-On Hackathons */}
+          {hackathon?.hackathonType === HackathonType.HANDS_ON && (
           <div className="bg-white rounded-lg shadow-md p-6 mt-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Submitted Ideas ({ideas.length})
+              Submissions ({ideas.length})
             </h2>
             
             {isLoadingIdeas ? (
@@ -494,7 +495,8 @@ const HackathonDetails = () => {
                       const date = new Date(idea.statusDeadline);
                       const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
                       return localDate.toISOString().slice(0, 16);
-                    })() : '' 
+                    })() : '',
+                    rejectionReason: idea.rejectionReason || ''
                   };
                   const needsDeadline = currentStatusChange.status === IdeaStatus.PITCHING || 
                                        currentStatusChange.status === IdeaStatus.ENHANCEMENTS || 
@@ -574,7 +576,7 @@ const HackathonDetails = () => {
                           </span>
                           {/* Status Dropdown - Only show Hands-On hackathon statuses */}
                           {idea.hackathon?.hackathonType === HackathonType.HANDS_ON ? (
-                            <div className="flex flex-col items-end space-y-1">
+                            <div className="flex flex-col items-end space-y-1 w-full">
                               <select
                                 value={currentStatusChange.status || ''}
                                 onChange={(e) => {
@@ -592,12 +594,15 @@ const HackathonDetails = () => {
                                            newStatus === IdeaStatus.COMPLETED || 
                                            newStatus === IdeaStatus.UNDER_REVIEW)
                                           ? ''
-                                          : currentStatusChange.deadline
+                                          : currentStatusChange.deadline,
+                                      rejectionReason: newStatus === IdeaStatus.REJECTED 
+                                        ? (currentStatusChange.rejectionReason || '') 
+                                        : ''
                                     }
                                   });
                                 }}
                                 disabled={updatingIdeaId === idea.id}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed w-full"
                               >
                                 <option value="">Select Status</option>
                                 <option value={IdeaStatus.UNDER_REVIEW}>Under Review</option>
@@ -621,17 +626,36 @@ const HackathonDetails = () => {
                                     });
                                   }}
                                   disabled={updatingIdeaId === idea.id}
-                                  className="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed w-full"
+                                />
+                              )}
+                              {(currentStatusChange.status === IdeaStatus.REJECTED) && (
+                                <textarea
+                                  value={currentStatusChange.rejectionReason || ''}
+                                  onChange={(e) => {
+                                    setIdeaStatusChanges({
+                                      ...ideaStatusChanges,
+                                      [idea.id]: {
+                                        ...currentStatusChange,
+                                        rejectionReason: e.target.value
+                                      }
+                                    });
+                                  }}
+                                  placeholder="Enter rejection reason (optional)..."
+                                  disabled={updatingIdeaId === idea.id}
+                                  rows={3}
+                                  className="px-2 py-1 text-xs border border-red-300 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none w-full"
                                 />
                               )}
                               <button
                                 onClick={() => handleIdeaStatusChange(
                                   idea.id, 
                                   currentStatusChange.status,
-                                  currentStatusChange.deadline || undefined
+                                  currentStatusChange.deadline || undefined,
+                                  currentStatusChange.rejectionReason || undefined
                                 )}
                                 disabled={updatingIdeaId === idea.id || !currentStatusChange.status || (needsDeadline && !currentStatusChange.deadline)}
-                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed w-full"
                               >
                                 {updatingIdeaId === idea.id ? 'Updating...' : 'Update'}
                               </button>
@@ -657,6 +681,12 @@ const HackathonDetails = () => {
                       <h4 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2">{idea.title}</h4>
                       {idea.description && (
                         <p className="text-xs text-gray-600 line-clamp-3 mb-3">{idea.description}</p>
+                      )}
+                      {idea.rejectionReason && (
+                        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md">
+                          <p className="text-xs font-medium text-red-800 mb-1">Rejection Reason:</p>
+                          <p className="text-xs text-red-700">{idea.rejectionReason}</p>
+                        </div>
                       )}
                       {/* Show file attachments if available */}
                       {(idea.gitRepositoryUrl || idea.documentationUrl || idea.videoUrl || idea.zipFilePath) && (
@@ -708,6 +738,7 @@ const HackathonDetails = () => {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>

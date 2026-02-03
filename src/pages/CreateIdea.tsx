@@ -49,7 +49,11 @@ const CreateIdea = () => {
         navigate('/my-ideas');
       }, 2000);
     } catch (error: any) {
-      setMessage(error.response?.data?.message || 'Failed to create idea. Please try again.');
+      if (error.isNetworkError || !error.response) {
+        setMessage('Unable to connect to server. Please check if the backend server is running on port 5000.');
+      } else {
+        setMessage(error.response?.data?.message || 'Failed to create idea. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

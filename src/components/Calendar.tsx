@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Meeting, Hackathon, HackathonStatus } from '../types';
+import { Hackathon, HackathonStatus } from '../types';
 import { registrationService } from '../services/registration.service';
 import { hackathonService } from '../services/hackathon.service';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,22 +7,20 @@ import { useAuth } from '../contexts/AuthContext';
 interface CalendarEvent {
   id: string;
   date: Date;
-  type: 'registration' | 'hackathon-start' | 'hackathon-end' | 'meeting';
+  type: 'registration' | 'hackathon-start' | 'hackathon-end';
   title: string;
   hackathon?: Hackathon;
-  meeting?: Meeting;
 }
 
 interface CalendarProps {
   hackathons: Hackathon[];
-  meetings: Meeting[];
   /** If true, shows all hackathons and allows registration. If false, only shows registered hackathons. */
   showAllHackathons?: boolean;
   /** Callback when hackathon is registered */
   onHackathonRegistered?: () => void;
 }
 
-const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathonRegistered }: CalendarProps) => {
+const Calendar = ({ hackathons, showAllHackathons = false, onHackathonRegistered }: CalendarProps) => {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [registeringIds, setRegisteringIds] = useState<Set<string>>(new Set());
@@ -95,19 +93,8 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
       });
     });
 
-    // Add meetings
-    meetings.forEach((meeting) => {
-      eventList.push({
-        id: `meeting-${meeting.id}`,
-        date: new Date(meeting.scheduledDate),
-        type: 'meeting',
-        title: meeting.title,
-        meeting,
-      });
-    });
-
     return eventList;
-  }, [hackathons, allHackathons, meetings, showAllHackathons]);
+  }, [hackathons, allHackathons, showAllHackathons]);
 
   // Get events for a specific date
   const getEventsForDate = (date: Date): CalendarEvent[] => {
@@ -348,10 +335,6 @@ const Calendar = ({ hackathons, meetings, showAllHackathons = false, onHackathon
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
             <span className="text-gray-600">Hackathon End</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-            <span className="text-gray-600">Meeting</span>
           </div>
         </div>
       </div>

@@ -129,5 +129,22 @@ export const ideaService = {
     }
     return response.data.data.ideas;
   },
+
+  updateProjectDetails: async (ideaId: string, data: {
+    githubUrl?: string;
+    demoVideoUrl?: string;
+    documentationUrl?: string;
+    zipFilePath?: string;
+    projectDescription?: string;
+    implementationDetails?: string;
+    pitchVideoUrl?: string;
+    presentationUrl?: string;
+  }): Promise<Idea> => {
+    const response = await api.patch<ApiResponse<Idea>>(`/ideas/${ideaId}/project-details`, data);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to update project details');
+    }
+    return response.data.data;
+  },
 };
 

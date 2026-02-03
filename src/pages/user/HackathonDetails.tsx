@@ -3,8 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
 import { registrationService } from '../../services/registration.service';
 import { teamService } from '../../services/team.service';
-import { meetingService } from '../../services/meeting.service';
-import { Hackathon, HackathonStatus, HackathonType, Team, Meeting } from '../../types';
+import { Hackathon, HackathonStatus, HackathonType, Team } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import Calendar from '../../components/Calendar';
 import LeftSidebar from '../../components/LeftSidebar';
@@ -17,7 +16,6 @@ const HackathonDetails = () => {
   const { user } = useAuth();
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -43,13 +41,12 @@ const HackathonDetails = () => {
         const registered = await registrationService.checkRegistrationStatus(id!);
         setIsRegistered(registered);
 
-        // Load teams and meetings if registered
-        if (registered) {
+        // Load teams if registered and hackathon is Hands-On
+        if (registered && data.hackathonType === HackathonType.HANDS_ON) {
           const hackathonTeams = await teamService.getTeamsByHackathon(id!);
           setTeams(hackathonTeams);
-
-          const hackathonMeetings = await meetingService.getHackathonMeetings(id!);
-          setMeetings(hackathonMeetings);
+        } else {
+          setTeams([]);
         }
       }
     } catch (err: any) {
@@ -66,7 +63,7 @@ const HackathonDetails = () => {
     try {
       await registrationService.registerForHackathon(hackathon.id);
       setIsRegistered(true);
-      await loadHackathonData(); // Reload to get teams/meetings
+      await loadHackathonData(); // Reload to get teams
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to register for hackathon');
     } finally {
@@ -84,12 +81,6 @@ const HackathonDetails = () => {
     });
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const getStatusColor = (status: HackathonStatus, hackathonType?: HackathonType) => {
     if (hackathonType === HackathonType.HANDS_ON) {
@@ -370,7 +361,7 @@ const HackathonDetails = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Microsoft Teams Link</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Online Event Link</h3>
                   <a
                     href={hackathon.onlineLink}
                     target="_blank"
@@ -411,12 +402,12 @@ const HackathonDetails = () => {
         {/* Calendar View - Show calendar for this specific hackathon */}
         {isRegistered && (
           <div className="mb-6">
-            <Calendar hackathons={[hackathon]} meetings={meetings} />
+            <Calendar hackathons={[hackathon]} />
           </div>
         )}
 
-        {/* Teams Section - Only show if registered */}
-        {isRegistered && (
+        {/* Teams Section - Only show if registered and hackathon is Hands-On */}
+        {isRegistered && hackathon?.hackathonType === HackathonType.HANDS_ON && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Teams</h2>
@@ -482,47 +473,11 @@ const HackathonDetails = () => {
           />
         )}
 
-        {/* Meetings Section - Only show if registered */}
-        {isRegistered && meetings.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Microsoft Teams Meetings</h2>
-            <div className="space-y-4">
-              {meetings.map((meeting) => (
-                <div key={meeting.id} className="p-4 bg-blue-50 rounded-md border border-blue-200">
-                  <h3 className="font-medium text-gray-900 mb-2">{meeting.title}</h3>
-                  {meeting.description && (
-                    <p className="text-sm text-gray-600 mb-2">{meeting.description}</p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      <span>{formatDate(meeting.scheduledDate)}</span>
-                      <span className="ml-4">{formatTime(meeting.scheduledDate)}</span>
-                    </div>
-                    {meeting.meetingLink && (
-                      <a
-                        href={meeting.meetingLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        <span>Join Teams</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
           </div>
 
           {/* Right Sidebar - Show calendar for this specific hackathon if registered */}
           <RightSidebar 
             specificHackathon={isRegistered ? hackathon : undefined}
-            specificMeetings={isRegistered ? meetings : undefined}
           />
         </div>
       </div>

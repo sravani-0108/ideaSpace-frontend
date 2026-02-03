@@ -96,22 +96,6 @@ export interface Team {
   updatedAt: string;
 }
 
-export interface Meeting {
-  id: string;
-  title: string;
-  description?: string;
-  scheduledDate: string;
-  meetingLink?: string;
-  hackathonId: string;
-  teamId?: string;
-  createdBy: string;
-  hackathon?: Hackathon;
-  team?: Team;
-  creator?: User;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface User {
   id: string;
   email: string;
@@ -136,6 +120,17 @@ export interface Idea {
   documentationUrl?: string;
   videoUrl?: string;
   zipFilePath?: string;
+  // Project submission fields (for ENHANCEMENTS and IMPLEMENTATION phases)
+  githubUrl?: string;
+  demoVideoUrl?: string;
+  projectDescription?: string;
+  implementationDetails?: string;
+  pitchVideoUrl?: string;
+  presentationUrl?: string;
+  // Review fields
+  judgeFeedback?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
   author?: {
     id: string;
     email: string;

@@ -35,6 +35,7 @@ const IdeaDetails = () => {
   const [selectedStatus, setSelectedStatus] = useState<IdeaStatus>(IdeaStatus.PENDING);
   const [statusDeadline, setStatusDeadline] = useState('');
   const [showDeadlineInput, setShowDeadlineInput] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Determine where to navigate back to
   const getBackPath = () => {
@@ -89,6 +90,8 @@ const IdeaDetails = () => {
         idea.status === IdeaStatus.ENHANCEMENTS ||
         idea.status === IdeaStatus.IMPLEMENTATION
       );
+      // Load rejection reason if exists
+      setRejectionReason(idea.rejectionReason || '');
     }
   }, [idea]);
 
@@ -152,6 +155,7 @@ const IdeaDetails = () => {
     try {
       await adminService.updateIdeaStatus(idea.id, selectedStatus, {
         statusDeadline: finalDeadline,
+        rejectionReason: selectedStatus === IdeaStatus.REJECTED ? rejectionReason : undefined,
       });
       // Reload idea to get updated status
       await loadIdea();
@@ -172,6 +176,7 @@ const IdeaDetails = () => {
       setSelectedStatus(idea?.status || IdeaStatus.PENDING);
       setShowDeadlineInput(false);
       setStatusDeadline('');
+      setRejectionReason(idea?.rejectionReason || '');
       return;
     }
     setSelectedStatus(newStatus);
@@ -182,8 +187,15 @@ const IdeaDetails = () => {
       newStatus === IdeaStatus.IMPLEMENTATION
     );
     // Clear deadline if status doesn't require it
-    if (!showDeadlineInput && (newStatus === IdeaStatus.UNDER_REVIEW || newStatus === IdeaStatus.COMPLETED)) {
+    if (!showDeadlineInput && (newStatus === IdeaStatus.UNDER_REVIEW || newStatus === IdeaStatus.COMPLETED || newStatus === IdeaStatus.REJECTED)) {
       setStatusDeadline('');
+    }
+    // Clear rejection reason if status is not REJECTED
+    if (newStatus !== IdeaStatus.REJECTED) {
+      setRejectionReason('');
+    } else {
+      // If switching to REJECTED, keep existing rejection reason if any
+      setRejectionReason(idea?.rejectionReason || '');
     }
   };
 
@@ -363,6 +375,22 @@ const IdeaDetails = () => {
                     />
                   </div>
                 )}
+                {(selectedStatus === IdeaStatus.REJECTED) && (
+                  <div className="flex flex-col space-y-2">
+                    <label htmlFor="rejection-reason" className="text-sm font-medium text-red-700">
+                      Rejection Reason:
+                    </label>
+                    <textarea
+                      id="rejection-reason"
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="Enter rejection reason (optional)..."
+                      disabled={isUpdatingStatus}
+                      rows={3}
+                      className="px-3 py-2 border border-red-300 rounded-md bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                    />
+                  </div>
+                )}
                 <button
                   onClick={handleStatusChange}
                   disabled={isUpdatingStatus || !selectedStatus || (showDeadlineInput && !statusDeadline)}
@@ -519,27 +547,34 @@ const IdeaDetails = () => {
                 const profilePicUrl = getProfilePictureUrl(author);
                 
                 return (
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3" style={{ flexDirection: 'row' }}>
+                    {/* Avatar first - explicitly ordered */}
                     {profilePicUrl ? (
                       <img
                         src={profilePicUrl}
                         alt={authorName}
-                        className="w-10 h-10 rounded-full object-cover"
+                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                        style={{ order: 1 }}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.style.display = 'none';
                           const fallback = document.createElement('div');
-                          fallback.className = 'w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium';
+                          fallback.className = 'w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0';
+                          fallback.style.order = '1';
                           fallback.textContent = authorInitials;
                           target.parentNode?.appendChild(fallback);
                         }}
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
+                      <div 
+                        className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0"
+                        style={{ order: 1 }}
+                      >
                         {authorInitials}
                       </div>
                     )}
-                    <div className="flex flex-col">
+                    {/* Name and date after avatar - explicitly ordered */}
+                    <div className="flex flex-col" style={{ order: 2 }}>
                       <span className="text-sm font-medium text-gray-900">{authorName}</span>
                       <span className="text-xs text-gray-500">{formatDate(idea.createdAt)}</span>
                     </div>

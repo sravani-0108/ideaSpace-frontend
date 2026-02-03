@@ -274,7 +274,7 @@ const CreateHackathon = () => {
 
               <div>
                 <label htmlFor="onlineLink" className="block text-sm font-medium text-gray-700 mb-2">
-                  Online Link (Optional)
+                  Online Event Link (Optional)
                 </label>
                 <input
                   type="url"
@@ -282,8 +282,11 @@ const CreateHackathon = () => {
                   value={formData.onlineLink}
                   onChange={(e) => setFormData({ ...formData, onlineLink: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://meet.google.com/..."
+                  placeholder="https://zoom.us/j/... or https://teams.microsoft.com/..."
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Link for online/virtual hackathon events (Zoom, Teams, Google Meet, etc.)
+                </p>
               </div>
 
               <div className="flex items-center justify-center space-x-4 pt-4">

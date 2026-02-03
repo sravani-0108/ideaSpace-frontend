@@ -31,12 +31,23 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle network errors (no response from server)
+    if (!error.response) {
+      // Network error - server is not reachable
+      const networkError = new Error('Network Error');
+      (networkError as any).isNetworkError = true;
+      (networkError as any).message = 'Unable to connect to server. Please check if the backend server is running.';
+      return Promise.reject(networkError);
+    }
+
+    // Handle 401 Unauthorized
     if (error.response?.status === 401) {
       // Unauthorized - clear token and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+
     return Promise.reject(error);
   }
 );
