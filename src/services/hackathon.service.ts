@@ -19,6 +19,7 @@ export const hackathonService = {
     location: string;
     onlineLink?: string;
     status?: HackathonStatus;
+    judgeIds?: string[];
   }): Promise<Hackathon> => {
     const response = await api.post<ApiResponse<Hackathon>>('/hackathons', data);
     if (!response.data.success || !response.data.data) {

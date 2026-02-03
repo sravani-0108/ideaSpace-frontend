@@ -72,5 +72,18 @@ export const userService = {
     }
     return response.data.data;
   },
+
+  getAllUsers: async (): Promise<User[]> => {
+    const response = await api.get<ApiResponse<User[]>>('/users/all');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to get users');
+    }
+    return response.data.data;
+  },
+
+  getAllJudges: async (): Promise<User[]> => {
+    // Backward compatibility - returns all users
+    return userService.getAllUsers();
+  },
 };
 

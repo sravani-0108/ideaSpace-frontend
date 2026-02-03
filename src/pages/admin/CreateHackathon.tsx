@@ -1,11 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
-import { HackathonType, HackathonStatus } from '../../types';
+import { userService } from '../../services/user.service';
+import { HackathonType, HackathonStatus, User } from '../../types';
 import AdminSidebar from '../../components/AdminSidebar';
 
 const CreateHackathon = () => {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    loadJudges();
+  }, []);
+
+  const loadJudges = async () => {
+    try {
+      setLoadingJudges(true);
+      const usersList = await userService.getAllUsers();
+      setJudges(usersList);
+    } catch (error: any) {
+      console.error('Failed to load users:', error);
+    } finally {
+      setLoadingJudges(false);
+    }
+  };
+
   const [formData, setFormData] = useState({
     title: '',
     purpose: '',
@@ -23,6 +41,9 @@ const CreateHackathon = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [judges, setJudges] = useState<User[]>([]);
+  const [selectedJudges, setSelectedJudges] = useState<string[]>([]);
+  const [loadingJudges, setLoadingJudges] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -93,6 +114,7 @@ const CreateHackathon = () => {
         location: formData.location.trim(),
         onlineLink: formData.onlineLink.trim() || undefined,
         status: formData.hackathonType === HackathonType.HANDS_ON ? HackathonStatus.DRAFT : undefined, // Set DRAFT for Hands-On hackathons
+        judgeIds: selectedJudges.length > 0 ? selectedJudges : undefined,
       });
       setMessage('Hackathon created successfully!');
       setTimeout(() => {
@@ -288,6 +310,53 @@ const CreateHackathon = () => {
                   Link for online/virtual hackathon events (Zoom, Teams, Google Meet, etc.)
                 </p>
               </div>
+
+              {/* Assign Judges (Users) */}
+              {formData.hackathonType === HackathonType.HANDS_ON && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assign Judges (Select Users) (Optional)
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Select registered users to review and judge this hackathon. Assigned users cannot register as participants.
+                </p>
+                {loadingJudges ? (
+                  <div className="text-sm text-gray-500">Loading users...</div>
+                ) : judges.length === 0 ? (
+                  <div className="text-sm text-gray-500">No registered users available.</div>
+                ) : (
+                  <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                    {judges.map((judge) => (
+                      <label key={judge.id} className="flex items-center space-x-2 py-2 hover:bg-gray-50 rounded px-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedJudges.includes(judge.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedJudges([...selectedJudges, judge.id]);
+                            } else {
+                              setSelectedJudges(selectedJudges.filter(id => id !== judge.id));
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {judge.firstName || judge.lastName 
+                            ? `${judge.firstName} ${judge.lastName}`.trim() 
+                            : judge.email}
+                        </span>
+                        <span className="text-xs text-gray-500">({judge.email})</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {selectedJudges.length > 0 && (
+                  <p className="mt-2 text-xs text-gray-600">
+                    {selectedJudges.length} user{selectedJudges.length > 1 ? 's' : ''} selected as judge{selectedJudges.length > 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+              )}
 
               <div className="flex items-center justify-center space-x-4 pt-4">
                 <button

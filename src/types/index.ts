@@ -69,6 +69,7 @@ export interface Hackathon {
     firstName?: string;
     lastName?: string;
   };
+  judgeIds?: string[]; // Array of judge user IDs
   createdAt: string;
   updatedAt: string;
 }

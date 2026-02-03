@@ -1,24 +1,65 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { hackathonService } from '../../services/hackathon.service';
-import { Hackathon, HackathonStatus, HackathonType } from '../../types';
+import { userService } from '../../services/user.service';
+import { Hackathon, HackathonStatus, HackathonType, User } from '../../types';
 import AdminSidebar from '../../components/AdminSidebar';
 import { useAuth } from '../../contexts/AuthContext';
 
 type HackathonTypeFilter = 'all' | 'learning' | 'handsOn';
 
 const Hackathons = () => {
-  const { isAdminOrJudge } = useAuth();
+  const { isAdminOrJudge, user, isAdmin } = useAuth();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [nextHackathon, setNextHackathon] = useState<Hackathon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [hackathonTypeFilter, setHackathonTypeFilter] = useState<HackathonTypeFilter>('all');
+  const [judgesMap, setJudgesMap] = useState<Record<string, User>>({});
 
   useEffect(() => {
     loadHackathons();
     loadNextHackathon();
+    loadJudges();
   }, []);
+
+  const loadJudges = async () => {
+    try {
+      const judges = await userService.getAllJudges();
+      const map: Record<string, User> = {};
+      judges.forEach(judge => {
+        map[judge.id] = judge;
+      });
+      setJudgesMap(map);
+    } catch (err) {
+      // Silently fail - not critical
+    }
+  };
+
+  const getJudgeNames = (judgeIds?: string[]): string[] => {
+    if (!judgeIds || judgeIds.length === 0) return [];
+    return judgeIds
+      .map(id => {
+        const judge = judgesMap[id];
+        if (!judge) return null;
+        return judge.firstName || judge.lastName 
+          ? `${judge.firstName || ''} ${judge.lastName || ''}`.trim() 
+          : judge.email;
+      })
+      .filter((name): name is string => name !== null);
+  };
+
+  const isAssignedJudge = (hackathon: Hackathon): boolean => {
+    if (!user || isAdmin) return isAdmin; // Admins can always perform actions
+    
+    // If no judges are assigned, all users can perform actions
+    if (!hackathon.judgeIds || hackathon.judgeIds.length === 0) {
+      return true;
+    }
+    
+    // If judges are assigned, only assigned users can perform actions
+    return hackathon.judgeIds.includes(user.id);
+  };
 
   const loadHackathons = async () => {
     try {
@@ -144,8 +185,29 @@ const Hackathons = () => {
                       {getStatusDisplayName(nextHackathon.status)}
                     </span>
                   </div>
-                  <p className="text-gray-600 text-sm mb-4 leading-relaxed">{nextHackathon.purpose}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
+                      <p className="text-gray-600 text-sm mb-4 leading-relaxed">{nextHackathon.purpose}</p>
+                      {nextHackathon.judgeIds && nextHackathon.judgeIds.length > 0 && (
+                        <div className="mb-4 flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-medium text-gray-500">Assigned Judges (Users):</span>
+                          {getJudgeNames(nextHackathon.judgeIds).map((name, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {user?.role === 'JUDGE' && (
+                        <div className={`mb-4 px-3 py-2 rounded-md text-sm ${
+                          isAssignedJudge(nextHackathon)
+                            ? 'bg-green-50 text-green-800 border border-green-200'
+                            : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+                        }`}>
+                          {isAssignedJudge(nextHackathon) 
+                            ? '✓ You are assigned to this hackathon - You can perform actions'
+                            : '⚠️ You are not assigned to this hackathon - View only'}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
                     <div className="flex items-start gap-2.5">
                       <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -272,6 +334,29 @@ const Hackathons = () => {
                         </span>
                       </div>
                       <p className="text-gray-600 text-sm mb-4 leading-relaxed line-clamp-3">{hackathon.purpose}</p>
+                      {hackathon.judgeIds && hackathon.judgeIds.length > 0 && (
+                        <div className="mb-4 flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-medium text-gray-500">Assigned Judges (Users):</span>
+                          {getJudgeNames(hackathon.judgeIds).map((name, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {user && !isAdminOrJudge && (
+                        <div className={`mb-4 px-3 py-2 rounded-md text-sm ${
+                          isAssignedJudge(hackathon)
+                            ? 'bg-green-50 text-green-800 border border-green-200'
+                            : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+                        }`}>
+                          {isAssignedJudge(hackathon) 
+                            ? (hackathon.judgeIds && hackathon.judgeIds.length > 0
+                                ? '✓ You are assigned to this hackathon - You can perform actions'
+                                : '✓ No judges assigned - All users can perform actions')
+                            : '⚠️ You are not assigned to this hackathon - View only'}
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
                         <div className="flex items-start gap-2.5">
                           <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -25,9 +25,7 @@ import HandsOnHackathonIdeas from './pages/user/HandsOnHackathonIdeas';
 import ProjectSubmission from './pages/user/ProjectSubmission';
 import MyProjects from './pages/user/MyProjects';
 import MyTeams from './pages/user/MyTeams';
-import JudgeDashboard from './pages/judge/JudgeDashboard';
-import IdeaReview from './pages/judge/IdeaReview';
-import ProjectReview from './pages/judge/ProjectReview';
+import Review from './pages/user/Review';
 import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 
@@ -126,6 +124,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/review"
+        element={
+          <ProtectedRoute>
+            <Review />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/profile"
         element={
           <ProtectedRoute>
@@ -198,30 +204,6 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requireAdmin>
             <AdminHackathonDetails />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/judge/dashboard"
-        element={
-          <ProtectedRoute>
-            <JudgeDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/judge/ideas/:ideaId/review"
-        element={
-          <ProtectedRoute>
-            <IdeaReview />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/judge/projects/:projectId/review"
-        element={
-          <ProtectedRoute>
-            <ProjectReview />
           </ProtectedRoute>
         }
       />

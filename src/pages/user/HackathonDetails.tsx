@@ -255,7 +255,8 @@ const HackathonDetails = () => {
              (hackathon.hackathonType === HackathonType.HANDS_ON 
                ? hackathon.status === HackathonStatus.OPEN 
                : hackathon.status !== HackathonStatus.COMPLETED) && 
-             !isRegistered && canRegister() && (
+             !isRegistered && canRegister() && 
+             !(hackathon.judgeIds && hackathon.judgeIds.includes(user.id)) && (
               <button
                 onClick={handleRegister}
                 disabled={isRegistering}
@@ -263,6 +264,11 @@ const HackathonDetails = () => {
               >
                 {isRegistering ? 'Registering...' : 'Register'}
               </button>
+            )}
+            {user && hackathon.judgeIds && hackathon.judgeIds.includes(user.id) && (
+              <div className="px-6 py-2.5 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
+                assigned as judge
+              </div>
             )}
             {user && 
              (hackathon.hackathonType === HackathonType.HANDS_ON 

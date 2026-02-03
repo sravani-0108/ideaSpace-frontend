@@ -59,16 +59,49 @@ const HackathonsView = () => {
     setRegistrationStatuses(statuses);
   };
 
+  // Check if user is assigned as a judge for a hackathon
+  const isAssignedJudge = (hackathon: Hackathon): boolean => {
+    if (!user || !hackathon.judgeIds) return false;
+    
+    // Handle judgeIds - it might be a string (from simple-array) or an array
+    let judgeIdsArray: string[] = [];
+    const judgeIdsValue = hackathon.judgeIds;
+    if (Array.isArray(judgeIdsValue)) {
+      judgeIdsArray = judgeIdsValue;
+    } else {
+      // Handle case where it might be a string (from simple-array serialization)
+      const judgeIdsStr = String(judgeIdsValue);
+      if (judgeIdsStr.length > 0) {
+        judgeIdsArray = judgeIdsStr.split(',').map((id: string) => id.trim()).filter((id: string) => id.length > 0);
+      }
+    }
+    
+    return judgeIdsArray.length > 0 && judgeIdsArray.includes(user.id);
+  };
+
   const handleRegister = async (hackathonId: string) => {
     if (!user) return;
 
+    // Check if user is assigned as a judge before attempting registration
+    const hackathon = hackathons.find(h => h.id === hackathonId);
+    if (hackathon && isAssignedJudge(hackathon)) {
+      setError('You are assigned as a judge for this hackathon and cannot register as a participant.');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
     setRegisteringIds(prev => new Set(prev).add(hackathonId));
+    setError(''); // Clear any previous errors
     try {
       await registrationService.registerForHackathon(hackathonId);
       // Update registration status immediately to disable button
       setRegistrationStatuses(prev => ({ ...prev, [hackathonId]: true }));
+      setError(''); // Clear error on success
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to register for hackathon');
+      const errorMessage = err.response?.data?.message || 'Failed to register for hackathon';
+      setError(errorMessage);
+      // Clear error after 5 seconds
+      setTimeout(() => setError(''), 5000);
     } finally {
       setRegisteringIds(prev => {
         const newSet = new Set(prev);
@@ -155,6 +188,11 @@ const HackathonsView = () => {
   });
 
   const canRegister = (hackathon: Hackathon) => {
+    // If user is assigned as a judge, they cannot register
+    if (isAssignedJudge(hackathon)) {
+      return false;
+    }
+    
     const now = new Date();
     
     // For Hands-On hackathons, check status and registration deadline
@@ -305,21 +343,30 @@ const HackathonsView = () => {
                      ? hackathon.status === HackathonStatus.OPEN 
                      : hackathon.status !== HackathonStatus.COMPLETED) && (
                     <div className="flex items-center space-x-3">
-                      {isRegistered ? (
-                        <button
-                          disabled={true}
-                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium cursor-not-allowed"
-                        >
-                          Registered
-                        </button>
+                      {/* Check if user is assigned as a judge */}
+                      {isAssignedJudge(hackathon) ? (
+                        <div className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md text-sm font-medium">
+                          Assigned as Judge
+                        </div>
                       ) : (
-                        <button
-                          onClick={() => handleRegister(hackathon.id)}
-                          disabled={isRegistering || !canRegister(hackathon) || isRegistered}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                        >
-                          {isRegistering ? 'Registering...' : 'Register'}
-                        </button>
+                        <>
+                          {isRegistered ? (
+                            <button
+                              disabled={true}
+                              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium cursor-not-allowed"
+                            >
+                              Registered
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRegister(hackathon.id)}
+                              disabled={isRegistering || !canRegister(hackathon) || isRegistered}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                            >
+                              {isRegistering ? 'Registering...' : 'Register'}
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   )}

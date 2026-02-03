@@ -1,10 +1,37 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserDisplayName, getUserInitials, getProfilePictureUrl } from '../utils/user.util';
+import { hackathonService } from '../services/hackathon.service';
+import { HackathonType } from '../types';
 
 const LeftSidebar = () => {
-  const { user, isAdminOrJudge } = useAuth();
+  const { user, isAdmin } = useAuth();
   const location = useLocation();
+  const [hasAssignedHackathons, setHasAssignedHackathons] = useState(false);
+
+  useEffect(() => {
+    checkAssignedHackathons();
+  }, [user]);
+
+  const checkAssignedHackathons = async () => {
+    if (!user || isAdmin) {
+      setHasAssignedHackathons(false);
+      return;
+    }
+
+    try {
+      const allHackathons = await hackathonService.getAllHackathons();
+      const assigned = allHackathons.some(hackathon => 
+        hackathon.hackathonType === HackathonType.HANDS_ON &&
+        hackathon.judgeIds &&
+        hackathon.judgeIds.includes(user.id)
+      );
+      setHasAssignedHackathons(assigned);
+    } catch (err) {
+      setHasAssignedHackathons(false);
+    }
+  };
 
   if (!user) return null;
 
@@ -121,7 +148,7 @@ const LeftSidebar = () => {
             <span>My Teams</span>
           </Link>
 
-          {isAdminOrJudge && (
+          {isAdmin && (
             <Link
               to="/admin/review"
               className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -134,6 +161,23 @@ const LeftSidebar = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>Admin Review</span>
+            </Link>
+          )}
+
+          {/* Review button for assigned users (judges) */}
+          {hasAssignedHackathons && (
+            <Link
+              to="/review"
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/review')
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Review</span>
             </Link>
           )}
         </div>

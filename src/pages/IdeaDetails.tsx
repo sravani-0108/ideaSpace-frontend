@@ -51,10 +51,17 @@ const IdeaDetails = () => {
       return '/admin/dashboard?tab=allPosts';
     }
     
-    // If idea has a hackathonId and user is admin/judge, navigate back to that hackathon
-    if (idea?.hackathonId) {
-      const isAdmin = user?.role === 'ADMIN' || user?.role === 'JUDGE';
-      if (isAdmin) {
+    // If idea has a hackathonId and user is admin or assigned judge, navigate back to that hackathon
+    if (idea?.hackathonId && user) {
+      const isAdmin = user.role === 'ADMIN';
+      const isAssignedJudge = idea.hackathon && 
+        idea.hackathon.hackathonType === HackathonType.HANDS_ON && 
+        idea.hackathon.judgeIds && 
+        (Array.isArray(idea.hackathon.judgeIds) 
+          ? idea.hackathon.judgeIds.includes(user.id)
+          : String(idea.hackathon.judgeIds).split(',').map((id: string) => id.trim()).includes(user.id));
+      
+      if (isAdmin || isAssignedJudge) {
         return `/admin/hackathons/${idea.hackathonId}`;
       }
     }
@@ -115,8 +122,8 @@ const IdeaDetails = () => {
       setIdea({ ...data, isLiked: !!isLiked });
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Failed to load idea');
-      // If admin and idea not found, it might be a visibility issue - try to show error with more context
-      if (user && (user.role === 'ADMIN' || user.role === 'JUDGE')) {
+      // If admin or assigned judge and idea not found, it might be a visibility issue - try to show error with more context
+      if (user && user.role === 'ADMIN') {
         setError('Idea not found or not accessible. ' + (err.response?.data?.message || err.message || ''));
       }
     } finally {
@@ -199,7 +206,33 @@ const IdeaDetails = () => {
     }
   };
 
-  const isAdmin = user && (user.role === 'ADMIN' || user.role === 'JUDGE');
+  // Check if user is Admin
+  const isAdmin = user && user.role === 'ADMIN';
+  
+  // Check if user is assigned as a judge for this hackathon (if idea belongs to a Hands-On hackathon)
+  const isAssignedJudge = (() => {
+    if (!user || !idea?.hackathon || idea.hackathon.hackathonType !== HackathonType.HANDS_ON || !idea.hackathon.judgeIds) {
+      return false;
+    }
+    
+    // Handle judgeIds - it might be a string (from simple-array) or an array
+    let judgeIdsArray: string[] = [];
+    const judgeIdsValue = idea.hackathon.judgeIds;
+    if (Array.isArray(judgeIdsValue)) {
+      judgeIdsArray = judgeIdsValue;
+    } else {
+      // Handle case where it might be a string (from simple-array serialization)
+      const judgeIdsStr = String(judgeIdsValue);
+      if (judgeIdsStr.length > 0) {
+        judgeIdsArray = judgeIdsStr.split(',').map((id: string) => id.trim()).filter((id: string) => id.length > 0);
+      }
+    }
+    
+    return judgeIdsArray.length > 0 && judgeIdsArray.includes(user.id);
+  })();
+  
+  // User can update status if they are admin or assigned judge
+  const canUpdateStatus = isAdmin || isAssignedJudge;
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -275,6 +308,18 @@ const IdeaDetails = () => {
     });
   };
 
+  const handleBackClick = () => {
+    // Use React Router's history navigation to go back one step
+    // This will navigate to the previous page in the browser history
+    // If there's no history (e.g., direct link), fallback to calculated path
+    try {
+      navigate(-1);
+    } catch {
+      // Fallback if navigate(-1) fails for any reason
+      navigate(getBackPath());
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -292,7 +337,7 @@ const IdeaDetails = () => {
         <div className="text-center">
           <p className="text-gray-600 text-lg">Idea not found</p>
           <button
-            onClick={() => navigate(getBackPath())}
+            onClick={handleBackClick}
             className="mt-4 text-blue-600 hover:text-blue-700 inline-flex items-center"
           >
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -309,7 +354,7 @@ const IdeaDetails = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
-          onClick={() => navigate(getBackPath())}
+          onClick={handleBackClick}
           className="mb-4 text-blue-600 hover:text-blue-700 inline-flex items-center"
         >
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,11 +380,84 @@ const IdeaDetails = () => {
         )}
 
         <div className="bg-white shadow-md rounded-lg p-8 mb-6">
+          {/* User Profile Section - Show First */}
+          <div className="flex items-center justify-between border-b pb-4 mb-6">
+            <div className="flex items-center space-x-4">
+              {/* User Profile Avatar */}
+              {(() => {
+                const author = idea.user || idea.author;
+                const authorName = getUserDisplayName(author);
+                const authorInitials = getUserInitials(author);
+                const profilePicUrl = getProfilePictureUrl(author);
+                
+                return (
+                  <div className="flex items-center space-x-3" style={{ flexDirection: 'row' }}>
+                    {/* Avatar first - explicitly ordered */}
+                    {profilePicUrl ? (
+                      <img
+                        src={profilePicUrl}
+                        alt={authorName}
+                        className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                        style={{ order: 1 }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = document.createElement('div');
+                          fallback.className = 'w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0';
+                          fallback.style.order = '1';
+                          fallback.textContent = authorInitials;
+                          target.parentNode?.appendChild(fallback);
+                        }}
+                      />
+                    ) : (
+                      <div 
+                        className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0"
+                        style={{ order: 1 }}
+                      >
+                        {authorInitials}
+                      </div>
+                    )}
+                    {/* Name and date after avatar - explicitly ordered */}
+                    <div className="flex flex-col" style={{ order: 2 }}>
+                      <span className="text-base font-semibold text-gray-900">{authorName}</span>
+                      <span className="text-sm text-gray-500">{formatDate(idea.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            <button
+              onClick={handleLike}
+              disabled={isTogglingLike || !isAuthenticated}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                idea.isLiked
+                  ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <svg
+                className={`w-5 h-5 ${idea.isLiked ? 'fill-current' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                />
+              </svg>
+              <span>{idea.likesCount}</span>
+            </button>
+          </div>
+
+          {/* Idea Title and Status Section */}
           <div className="flex items-start justify-between mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">{idea.title}</h1>
-            {/* Status Dropdown for Admin */}
-            {isAdmin && idea.hackathonId && idea.hackathon?.hackathonType === HackathonType.HANDS_ON && (
-              <div className="flex flex-col items-end space-y-2">
+            <h1 className="text-3xl font-bold text-gray-900 flex-1">{idea.title}</h1>
+            {/* Status Dropdown for Admin and Assigned Judges */}
+            {canUpdateStatus && idea.hackathonId && idea.hackathon?.hackathonType === HackathonType.HANDS_ON && (
+              <div className="flex flex-col items-end space-y-2 ml-4">
                 <div className="flex items-center space-x-2">
                   <label htmlFor="idea-status-select" className="text-sm font-medium text-gray-700">
                     Status:
@@ -416,18 +534,20 @@ const IdeaDetails = () => {
                 return canSubmit ? (
                   <Link
                     to={`/ideas/${idea.id}/submit-project`}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm"
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm ml-4"
                   >
                     {hasProject ? 'Update Project' : 'Submit Project'}
                   </Link>
                 ) : (
-                  <span className="px-4 py-2 bg-gray-300 text-gray-600 rounded-md font-medium text-sm cursor-not-allowed">
+                  <span className="px-4 py-2 bg-gray-300 text-gray-600 rounded-md font-medium text-sm cursor-not-allowed ml-4">
                     Deadline Passed
                   </span>
                 );
               })()
             )}
           </div>
+          
+          {/* Idea Description */}
           <p className="text-gray-600 mb-6 whitespace-pre-wrap">{idea.description}</p>
           
           {/* Show file attachments if available */}
@@ -536,77 +656,6 @@ const IdeaDetails = () => {
               <p className="text-red-700">{idea.rejectionReason}</p>
             </div>
           )}
-          
-          <div className="flex items-center justify-between border-t pt-4">
-            <div className="flex items-center space-x-4">
-              {/* User Profile Avatar */}
-              {(() => {
-                const author = idea.user || idea.author;
-                const authorName = getUserDisplayName(author);
-                const authorInitials = getUserInitials(author);
-                const profilePicUrl = getProfilePictureUrl(author);
-                
-                return (
-                  <div className="flex items-center space-x-3" style={{ flexDirection: 'row' }}>
-                    {/* Avatar first - explicitly ordered */}
-                    {profilePicUrl ? (
-                      <img
-                        src={profilePicUrl}
-                        alt={authorName}
-                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                        style={{ order: 1 }}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = document.createElement('div');
-                          fallback.className = 'w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0';
-                          fallback.style.order = '1';
-                          fallback.textContent = authorInitials;
-                          target.parentNode?.appendChild(fallback);
-                        }}
-                      />
-                    ) : (
-                      <div 
-                        className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0"
-                        style={{ order: 1 }}
-                      >
-                        {authorInitials}
-                      </div>
-                    )}
-                    {/* Name and date after avatar - explicitly ordered */}
-                    <div className="flex flex-col" style={{ order: 2 }}>
-                      <span className="text-sm font-medium text-gray-900">{authorName}</span>
-                      <span className="text-xs text-gray-500">{formatDate(idea.createdAt)}</span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-            <button
-              onClick={handleLike}
-              disabled={isTogglingLike || !isAuthenticated}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-                idea.isLiked
-                  ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              <svg
-                className={`w-5 h-5 ${idea.isLiked ? 'fill-current' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
-              <span>{idea.likesCount}</span>
-            </button>
-          </div>
         </div>
 
         <div className="bg-white shadow-md rounded-lg p-8">
